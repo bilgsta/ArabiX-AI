@@ -1,0 +1,398 @@
+Master Project Specification
+Abu Al-Yazid – Personal AI Assistant
+
+Platform Name:
+Abu Al-Yazid – Personal AI Assistant
+
+Company:
+ArabiX AI © 2026
+
+CEO:
+Bilal Amir
+
+Vision
+
+Build a secure, production-ready, Arabic-first AI platform that competes with ChatGPT and Google Gemini while maintaining a unique Arabic identity in design, language, privacy, and user experience.
+
+The platform must be visually polished, technically robust, scalable, and trustworthy for users in the Arab world and beyond.
+
+Core Purpose
+
+Abu Al-Yazid is a smart personal AI assistant designed to support users with:
+
+Intelligent AI conversations
+
+Content writing and generation
+
+Programming and development help
+
+Education and learning assistance
+
+Business, marketing, and research
+
+Image, video, document, and voice analysis
+
+The platform must support Modern Standard Arabic, Arabic dialects, and multiple global languages.
+
+Security & Privacy (Critical Requirement)
+End-to-End Encryption (User-Visible)
+
+All chats must be protected using End-to-End Encryption
+
+A visible label inside every conversation:
+“🔒 End-to-End Encrypted”
+
+This label must always be visible in the chat header to reassure users
+
+Tooltip text:
+
+“This conversation is protected with End-to-End Encryption. Only you and Abu Al-Yazid can access it.”
+
+Additional Security Features
+
+Encryption at rest and in transit
+
+Secure authentication tokens
+
+Session and device management
+
+Logout from all devices
+
+Password change
+
+Account activity monitoring
+
+Parental Controls
+
+Child / Teen account mode
+
+Content filtering
+
+Usage analytics
+
+Ability to disable voice, images, and file uploads
+
+Authentication & Accounts
+
+Supported sign-in methods:
+
+Email & Password
+
+Google
+
+Facebook
+
+Microsoft
+
+Account features:
+
+Username
+
+Profile picture
+
+Profile page
+
+Cookie consent system with management controls
+
+Account deletion
+
+Password reset and change
+
+Subscription & Payments
+Plans
+
+Free Plan
+
+Limited number of AI messages
+
+Limited file upload size
+
+Slower response priority
+
+Premium Plan
+
+Unlimited AI messages
+
+Faster responses
+
+Advanced AI tools
+
+Larger file uploads
+
+Priority infrastructure access
+
+Payment Gateways (Arab World Ready)
+
+Fawry
+
+Visa
+
+MasterCard
+
+PayPal
+
+Chat Interface (Core Experience)
+Chat Design
+
+RTL-first layout
+
+Modern, clean UI
+
+Responsive on mobile, tablet, and desktop
+
+Collapsible sidebar
+
+Smooth animations
+
+Visible encryption indicator in every chat
+
+Chat Management
+
+Automatic smart chat titles
+
+Rename chats
+
+Delete chats
+
+Archive chats
+
+Pin chats
+
+Full chat history
+
+Clear all chats option
+
+Message Actions (Below Every AI Response)
+
+Like
+
+Copy
+
+Share
+
+Regenerate answer
+
+More actions menu
+
+More Actions Menu
+
+Open response in a new chat
+
+Read aloud (Arabic natural voice – accessibility friendly)
+
+Save response
+
+Report response
+
+Reporting System
+
+Reporting modal must include:
+
+Why are you reporting this conversation?
+
+Violence or self-harm
+
+Sexual exploitation or abuse
+
+Child / minor exploitation
+
+Harassment or bullying
+
+Spam, fraud, or deception
+
+Privacy violations
+
+Intellectual property infringement
+
+Age-inappropriate content
+
+Other
+
+Each item must include a custom SVG icon (no emojis), using the platform’s primary green color.
+
+Code Generation & Developer Experience
+
+When the user requests programming code:
+
+Code must be displayed inside a formatted code block
+
+Code style similar to professional terminals or CMD-style blocks
+
+Syntax highlighting for all programming languages
+
+Colored keywords, variables, strings, and comments
+
+Copy button for each code block
+
+Clean spacing and readable font
+
+The experience should be comparable to ChatGPT’s code rendering, with a polished and modern look.
+
+Voice, Files & Media
+
+Voice recording directly inside chat
+
+Speech-to-Text
+
+Text-to-Speech (clear Arabic dialect voice)
+
+Upload and analyze:
+
+Images (PNG, JPG)
+
+Videos
+
+PDF documents
+
+File preview before sending
+
+Basic image editing tools (crop, enhance, explain)
+
+Settings Panel (Compact)
+
+Settings must open in a small side panel, not a full page.
+
+Settings include:
+
+Language selection
+
+Dark / Light mode
+
+Font size
+
+Accent color
+
+Notifications
+
+Privacy controls
+
+Subscription management
+
+Connected applications management
+
+Data & security controls
+
+Account deletion
+
+Language Support
+
+Arabic
+
+English
+
+Spanish
+
+Chinese
+
+Japanese
+
+Korean
+
+Hindi
+
+Expandable multilingual system required.
+
+Design & Branding
+
+Arabic-first visual identity
+
+Modern, minimal UI
+
+Eye-friendly green palette
+
+Full RTL support
+
+Custom SVG icons only
+
+No emojis in system UI
+
+AI star animation above the “AI” text in the logo
+
+Loading Screen
+
+Appears for ~1 second
+
+AI-themed animation
+
+Text:
+
+“Abu Al-Yazid is thinking…”
+
+Website Pages
+
+Inspired by modern AI platforms, but fully original.
+
+Required pages:
+
+Home
+
+Research
+
+Safety
+
+Trust & Transparency
+
+Pricing
+
+About Abu Al-Yazid
+
+Login / Register
+
+Any mention of:
+
+“OpenAI” → ArabiX AI
+
+“ChatGPT” → Abu Al-Yazid
+
+Footer
+
+ArabiX AI © 2026
+
+Footer links:
+
+Terms of Use
+
+Privacy Policy
+
+Safety Policy
+
+Security & Privacy
+
+Trust & Transparency
+
+Cookie Management
+
+Language selector
+
+Each page must contain full professional legal content.
+
+AI Identity & Disclosure
+
+If the user asks:
+
+“Who developed you?”
+or
+“Are you affiliated with OpenAI?”
+
+The AI must respond:
+
+“I am Abu Al-Yazid, a personal AI assistant developed by ArabiX AI.
+The platform is led by CEO Bilal Amir and runs on independent, secure infrastructure built to serve Arabic-speaking users.”
+
+Technical Requirements
+
+Modern frontend framework (React or equivalent)
+
+Scalable backend API architecture
+
+Secure authentication system
+
+Database for users, chats, files, and subscriptions
+
+Clean, modular, well-documented codebase
+
+Production-ready and deployment-ready
+
+Final Objective
+
+Deliver a fully secure, End-to-End Encrypted, Arabic-first AI platform with exceptional UX, developer-friendly features, strong branding, and enterprise-grade architecture—ready for real-world use and future expansion.
