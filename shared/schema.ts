@@ -1,17 +1,29 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// --- Users (Extends Auth Schema) ---
-// Note: Basic user fields are in shared/models/auth.ts (users table).
-// We'll extend functionality via a separate 'user_settings' table or just assume the auth user is the base.
-// For simplicity in this stack, we will assume the `users` table from auth is the source of truth for identity.
-// We will add a `subscriptions` table and `user_preferences` table linked to the auth user ID.
+// --- Replit Auth Required Tables ---
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)]
+);
 
-// We need to import the users table definition if we want to reference it, 
-// but since it's in a separate file (models/auth.ts) and we want to keep schema.ts self-contained for the frontend generator if possible,
-// we will just reference the ID type (string/varchar) for foreign keys.
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 // --- User Preferences ---
 export const userPreferences = pgTable("user_preferences", {
@@ -107,3 +119,4 @@ export type CreateMessageRequest = {
 export type ChatResponse = {
   message: Message;
 };
+
