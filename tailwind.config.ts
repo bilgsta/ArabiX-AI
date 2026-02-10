@@ -83,9 +83,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["'IBM Plex Sans Arabic'", "var(--font-sans)"],
+        display: ["'IBM Plex Sans Arabic'", "sans-serif"],
         serif: ["var(--font-serif)"],
-        mono: ["var(--font-mono)"],
+        mono: ["'Fira Code'", "var(--font-mono)"],
       },
       keyframes: {
         "accordion-down": {
