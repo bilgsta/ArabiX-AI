@@ -126,6 +126,14 @@ export const api = {
         200: z.array(z.custom<typeof messages.$inferSelect>()),
       },
     },
+    stream: {
+      method: 'POST' as const,
+      path: '/api/conversations/:id/messages/stream' as const,
+      input: z.object({}),
+      responses: {
+        200: z.any(), // SSE stream
+      },
+    },
   },
 };
 

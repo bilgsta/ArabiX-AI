@@ -124,46 +124,31 @@ export async function registerRoutes(
     });
 
     // If it's a user message, trigger AI response (Streaming via SSE)
-    // NOTE: This endpoint currently just returns the user message. 
-    // The client should ideally open an EventSource or similar for the response stream 
-    // OR we can make this endpoint stream the response immediately.
-    // For simplicity with the current integration setup, let's just return the user message
-    // and let the client hit a separate "chat stream" endpoint or handle it here if we switch to SSE.
-    
-    // To keep it simple and aligned with the "Chat" integration pattern:
-    // We'll create a new endpoint for streaming specifically, or modify this one.
-    // Given the routes.ts in integration uses SSE for POST /messages, we can adapt that logic.
-    
+    const userMessage = await storage.createMessage({
+      conversationId,
+      role,
+      content,
+    });
+
     res.status(201).json(userMessage);
   });
   
   // Real-time Chat Streaming Endpoint
-  // This matches the pattern in the integration but adapted for our storage/auth
-  app.post("/api/conversations/:id/stream", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/:id/messages/stream", isAuthenticated, async (req: any, res) => {
     const conversationId = parseInt(req.params.id);
     const userId = req.user.claims.sub;
-    const { content } = req.body;
 
     const conversation = await storage.getConversation(conversationId);
     if (!conversation || conversation.userId !== userId) {
       return res.status(404).json({ message: "Conversation not found" });
     }
 
-    // Get history
     const messages = await storage.getMessages(conversationId);
     const chatHistory = messages.map(m => ({
       role: m.role as "user" | "assistant",
       content: m.content
     }));
 
-    // Add current message to history context (it was already saved by previous call, or we add it now)
-    // If the client calls create -> then stream, it's in DB. If just stream, we save it.
-    // Let's assume the client sends the message content here to trigger response.
-    // But ideally, we shouldn't duplicate. 
-    // Strategy: Client sends message to `POST /messages`, then listens to SSE? 
-    // Or `POST /stream` does both save and stream.
-    // Let's make `POST /stream` do the AI generation based on existing history.
-    
     const openai = require("openai").default;
     const ai = new openai({
         apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -178,7 +163,7 @@ export async function registerRoutes(
       const stream = await ai.chat.completions.create({
         model: "gpt-5.1",
         messages: [
-            { role: "system", content: "You are Abu Al-Yazid, a helpful and secure AI assistant. You speak Arabic fluently and prioritize user privacy." },
+            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير، وأعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي." },
             ...chatHistory
         ],
         stream: true,
@@ -194,7 +179,6 @@ export async function registerRoutes(
         }
       }
 
-      // Save assistant message
       await storage.createMessage({
         conversationId,
         role: "assistant",
