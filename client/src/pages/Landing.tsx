@@ -8,12 +8,13 @@ export default function Landing() {
   const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (isLoading) return null;
+  useEffect(() => {
+    if (!isLoading && user) {
+      setLocation("/c/new");
+    }
+  }, [user, isLoading, setLocation]);
 
-  if (user) {
-    setLocation("/c/new"); // Redirect logged in users immediately (or to last chat)
-    return null; 
-  }
+  if (isLoading || user) return null;
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-4">

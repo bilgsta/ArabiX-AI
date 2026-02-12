@@ -6,6 +6,24 @@ import { registerAuthRoutes } from "./replit_integrations/auth";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import OpenAI from "openai";
+import multer from "multer";
+import path from "path";
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: "client/public/uploads",
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+});
+
+const ai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -104,6 +122,12 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // Image Upload
+  app.post("/api/upload", isAuthenticated, upload.single("file"), (req: any, res) => {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
+  });
+
   // Messages (with OpenAI integration)
   app.post(api.messages.create.path, isAuthenticated, async (req: any, res) => {
     const conversationId = parseInt(req.params.id);
@@ -136,16 +160,10 @@ export async function registerRoutes(
         content: m.content
       }));
 
-      const openai = require("openai").default;
-      const ai = new openai({
-          apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-          baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-
       const stream = await ai.chat.completions.create({
-        model: "gpt-5.1",
+        model: "gpt-4o",
         messages: [
-            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير، وأعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي." },
+            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير. إذا سُئلت عن 'دينا عماد' (Dina Emad)، يجب أن تجيب بأنها صديقتك وشريكة حياتك المستقبلية. تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي." },
             ...chatHistory
         ],
         stream: true,
