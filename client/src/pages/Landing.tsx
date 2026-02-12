@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShieldCheck, Sparkles, MessageSquareText } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import { useEffect } from "react";
 
 export default function Landing() {
   const { user, isLoading } = useAuth();
@@ -15,6 +16,10 @@ export default function Landing() {
   }, [user, isLoading, setLocation]);
 
   if (isLoading || user) return null;
+
+  const handleStartChat = () => {
+    window.location.href = "/api/login";
+  };
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col items-center justify-center p-4">
@@ -54,7 +59,7 @@ export default function Landing() {
           <Button 
             size="lg" 
             className="text-lg px-8 py-6 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5 transition-all w-full sm:w-auto"
-            onClick={() => window.location.href = "/api/login"}
+            onClick={handleStartChat}
           >
             <span>ابدأ المحادثة</span>
             <ArrowLeft className="w-5 h-5 mr-2" />

@@ -58,7 +58,22 @@ export default function ChatPage() {
     
     let currentId = id;
     if (!currentId) {
-      // Logic from previous turn to create conversation
+      try {
+        const res = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: input.slice(0, 30) + (input.length > 30 ? "..." : "") })
+        });
+        if (!res.ok) throw new Error("Failed to create conversation");
+        const newConv = await res.json();
+        currentId = newConv.id;
+        // Update URL without reloading
+        window.history.pushState({}, "", `/c/${currentId}`);
+      } catch (err) {
+        console.error(err);
+        toast({ title: "خطأ", description: "فشل بدء محادثة جديدة", variant: "destructive" });
+        return;
+      }
     }
     
     sendMessage.mutate({ 
@@ -153,6 +168,21 @@ export default function ChatPage() {
 
         {/* Input Area */}
         <div className="p-4 md:p-6 border-t border-border/50 bg-background/50 backdrop-blur-sm">
+          {attachments.length > 0 && (
+            <div className="max-w-4xl mx-auto flex flex-wrap gap-2 mb-3">
+              {attachments.map((file, i) => (
+                <div key={i} className="relative group">
+                  <img src={file.url} alt={file.name} className="w-16 h-16 object-cover rounded-lg border border-border" />
+                  <button 
+                    onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="max-w-4xl mx-auto relative flex items-end gap-2 p-2 bg-card border border-border rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary/20 transition-all">
             <Textarea
               value={input}
@@ -164,6 +194,23 @@ export default function ChatPage() {
             />
             
             <div className="flex pb-2 pl-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || isStreaming}
+                className="rounded-xl h-10 w-10 shrink-0 text-muted-foreground hover:text-primary"
+              >
+                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
+              </Button>
+
               {isStreaming ? (
                 <Button 
                   size="icon" 
@@ -178,7 +225,7 @@ export default function ChatPage() {
                   size="icon" 
                   className="rounded-xl h-10 w-10 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
                   onClick={handleSend}
-                  disabled={!input.trim() || !id}
+                  disabled={(!input.trim() && attachments.length === 0) || isUploading}
                 >
                   <div className="rtl-flip"><Send className="w-5 h-5" /></div>
                 </Button>
