@@ -123,13 +123,6 @@ export async function registerRoutes(
       content,
     });
 
-    // If it's a user message, trigger AI response (Streaming via SSE)
-    const userMessage = await storage.createMessage({
-      conversationId,
-      role,
-      content,
-    });
-
     res.status(201).json(userMessage);
   });
   
