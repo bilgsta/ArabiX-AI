@@ -149,7 +149,7 @@ export default function ChatPage() {
                   role={msg.role as "user" | "assistant"}
                   content={msg.content}
                   createdAt={msg.createdAt}
-                  attachments={msg.attachments}
+                  attachments={msg.attachments ?? undefined}
                 />
               ))}
               
@@ -194,7 +194,7 @@ export default function ChatPage() {
               rows={1}
             />
             
-            <div className="flex pb-2 pl-2">
+            <div className="flex pb-2 pl-2 gap-1">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -207,7 +207,7 @@ export default function ChatPage() {
                 variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading || isStreaming}
-                className="rounded-xl h-10 w-10 shrink-0 text-muted-foreground hover:text-primary"
+                className="rounded-xl h-10 w-10 shrink-0 text-primary border border-primary/20 bg-primary/5"
               >
                 {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ImagePlus className="w-5 h-5" />}
               </Button>

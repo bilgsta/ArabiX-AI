@@ -179,21 +179,29 @@ export function ChatBubble({ role, content, createdAt, isStreaming, attachments 
         </div>
 
         {/* AI Action Buttons */}
-        {!isUser && !isStreaming && content && (
-          <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {!isStreaming && content && (
+          <div className="flex items-center gap-2 mt-2 opacity-100 !visible !z-50 pointer-events-auto">
+             {!isUser && (
+               <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePlayVoice();
+                }}
+                disabled={isPlaying && !audioRef.current}
+                className={cn(
+                  "p-1.5 hover:bg-muted rounded-md transition-colors",
+                  isPlaying ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                title="استماع"
+               >
+                 {isPlaying && !audioRef.current ? <Spinner className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
+               </button>
+             )}
              <button 
-              onClick={handlePlayVoice}
-              disabled={isPlaying && !audioRef.current}
-              className={cn(
-                "p-1.5 hover:bg-muted rounded-md transition-colors",
-                isPlaying ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-              )}
-              title="استماع"
-             >
-               {isPlaying && !audioRef.current ? <Spinner className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
-             </button>
-             <button 
-              onClick={handleCopy}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopy();
+              }}
               className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
               title="نسخ النص"
              >

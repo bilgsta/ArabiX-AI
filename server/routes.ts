@@ -80,8 +80,9 @@ export async function registerRoutes(
     const { title, initialMessage } = req.body;
     
     const conversation = await storage.createConversation(userId, {
+      userId,
       title: title || "New Chat",
-      isEncrypted: true, // Defaulting to true as per requirements
+      isEncrypted: true, 
     });
 
     if (initialMessage) {
@@ -166,6 +167,7 @@ export async function registerRoutes(
       conversationId,
       role,
       content,
+      attachments: req.body.attachments || null
     });
 
     // Start streaming AI response
