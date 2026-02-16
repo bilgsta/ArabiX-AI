@@ -128,6 +128,27 @@ export async function registerRoutes(
     res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
   });
 
+  // Text to Speech
+  app.post("/api/tts", isAuthenticated, async (req: any, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ message: "No text provided" });
+
+      const mp3 = await ai.audio.speech.create({
+        model: "tts-1",
+        voice: "onyx",
+        input: text,
+      });
+
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      res.setHeader("Content-Type", "audio/mpeg");
+      res.send(buffer);
+    } catch (error) {
+      console.error("TTS Error:", error);
+      res.status(500).json({ message: "Failed to generate speech" });
+    }
+  });
+
   // Messages (with OpenAI integration)
   app.post(api.messages.create.path, isAuthenticated, async (req: any, res) => {
     const conversationId = parseInt(req.params.id);

@@ -3,8 +3,8 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
-import { Bot, User, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { Bot, User, Copy, Check, Volume2, Loader2 as Spinner } from "lucide-react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -25,11 +25,47 @@ interface ChatBubbleProps {
 export function ChatBubble({ role, content, createdAt, isStreaming, attachments }: ChatBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePlayVoice = async () => {
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    try {
+      setIsPlaying(true);
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: content }),
+      });
+
+      if (!res.ok) throw new Error("TTS failed");
+      
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      
+      if (audioRef.current) {
+        audioRef.current.src = url;
+      } else {
+        audioRef.current = new Audio(url);
+      }
+      
+      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.play();
+    } catch (err) {
+      console.error(err);
+      setIsPlaying(false);
+    }
   };
 
   return (
@@ -145,6 +181,17 @@ export function ChatBubble({ role, content, createdAt, isStreaming, attachments 
         {/* AI Action Buttons */}
         {!isUser && !isStreaming && content && (
           <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+             <button 
+              onClick={handlePlayVoice}
+              disabled={isPlaying && !audioRef.current}
+              className={cn(
+                "p-1.5 hover:bg-muted rounded-md transition-colors",
+                isPlaying ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="استماع"
+             >
+               {isPlaying && !audioRef.current ? <Spinner className="w-4 h-4 animate-spin" /> : <Volume2 className="w-4 h-4" />}
+             </button>
              <button 
               onClick={handleCopy}
               className="p-1.5 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
