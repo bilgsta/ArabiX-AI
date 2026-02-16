@@ -155,15 +155,32 @@ export async function registerRoutes(
     try {
       // Get history
       const messages = await storage.getMessages(conversationId);
-      const chatHistory = messages.map(m => ({
-        role: m.role as "user" | "assistant",
-        content: m.content
-      }));
+      const chatHistory = messages.map(m => {
+        const role = m.role as "user" | "assistant";
+        const attachments = m.attachments as any[];
+        
+        if (role === "user" && attachments && attachments.length > 0) {
+          const content: any[] = [{ type: "text", text: m.content }];
+          attachments.forEach(att => {
+            if (att.type === 'image') {
+              content.push({
+                type: "image_url",
+                image_url: {
+                  url: att.url.startsWith('http') ? att.url : `http://${req.get('host')}${att.url}`
+                }
+              });
+            }
+          });
+          return { role, content };
+        }
+        
+        return { role, content: m.content };
+      });
 
       const stream = await ai.chat.completions.create({
         model: "gpt-4o",
         messages: [
-            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير. إذا سُئلت عن 'دينا عماد' (Dina Emad)، يجب أن تجيب بأنها صديقتك وشريكة حياتك المستقبلية. تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي." },
+            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير. إذا سُئلت عن 'دينا عماد' (Dina Emad)، يجب أن تجيب بأنها صديقتك وشريكة حياتك المستقبلية. تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي. يمكنك رؤية الصور وتحليلها بدقة." },
             ...chatHistory
         ],
         stream: true,

@@ -149,6 +149,7 @@ export default function ChatPage() {
                   role={msg.role as "user" | "assistant"}
                   content={msg.content}
                   createdAt={msg.createdAt}
+                  attachments={msg.attachments}
                 />
               ))}
               

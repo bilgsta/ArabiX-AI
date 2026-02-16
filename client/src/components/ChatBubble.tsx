@@ -14,9 +14,15 @@ interface ChatBubbleProps {
   content: string;
   createdAt?: Date | string;
   isStreaming?: boolean;
+  attachments?: {
+    type: 'image' | 'file' | 'audio';
+    url: string;
+    name: string;
+    size?: number;
+  }[];
 }
 
-export function ChatBubble({ role, content, createdAt, isStreaming }: ChatBubbleProps) {
+export function ChatBubble({ role, content, createdAt, isStreaming, attachments }: ChatBubbleProps) {
   const isUser = role === "user";
   const [copied, setCopied] = useState(false);
 
@@ -64,6 +70,23 @@ export function ChatBubble({ role, content, createdAt, isStreaming }: ChatBubble
             ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-sm" 
             : "bg-card text-card-foreground border-border/50 rounded-tl-sm"
         )}>
+          {/* Attachments */}
+          {attachments && attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {attachments.map((file, i) => (
+                <div key={i} className="max-w-[200px] rounded-lg overflow-hidden border border-border/20">
+                  {file.type === 'image' ? (
+                    <img src={file.url} alt={file.name} className="w-full h-auto object-cover max-h-60" />
+                  ) : (
+                    <div className="p-2 flex items-center gap-2 bg-muted/30">
+                      <span className="text-xs truncate">{file.name}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Loading Indicator for empty AI response */}
           {!isUser && content === "" && isStreaming ? (
             <div className="flex items-center gap-1 h-6">
