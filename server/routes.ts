@@ -110,6 +110,19 @@ export async function registerRoutes(
     res.json({ conversation, messages });
   });
 
+  app.patch(api.conversations.update.path, isAuthenticated, async (req: any, res) => {
+    const id = parseInt(req.params.id);
+    const userId = req.user.claims.sub;
+    
+    const conversation = await storage.getConversation(id);
+    if (!conversation || conversation.userId !== userId) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+
+    const updated = await storage.updateConversation(id, req.body);
+    res.json(updated);
+  });
+
   app.delete(api.conversations.delete.path, isAuthenticated, async (req: any, res) => {
     const id = parseInt(req.params.id);
     const userId = req.user.claims.sub;

@@ -27,7 +27,17 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ... (auth and scroll effects)
+  useEffect(() => {
+    if (!isAuthLoading && !user) {
+      window.location.href = "/api/login";
+    }
+  }, [user, isAuthLoading]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [data?.messages, streamedContent]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -90,6 +100,16 @@ export default function ChatPage() {
       handleSend();
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   if (isError) {
     return (
