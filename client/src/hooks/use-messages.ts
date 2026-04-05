@@ -1,9 +1,9 @@
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { api, buildUrl, type CreateMessageRequest, type Message } from "@shared/routes";
+import { api, buildUrl, type CreateMessageRequest } from "@shared/routes";
 import { useState, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export function useSendMessage(conversationId: number) {
+export function useSendMessage(conversationId: number, pin?: string) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isStreaming, setIsStreaming] = useState(false);
@@ -12,19 +12,18 @@ export function useSendMessage(conversationId: number) {
 
   const sendMessage = useMutation({
     mutationFn: async (data: CreateMessageRequest) => {
-      // 1. Send the User Message Immediately (Optimistic UI handled by component usually, or here)
-      // Note: The backend route sends SSE. We need to handle this manually with fetch to read the stream.
-      
       setIsStreaming(true);
       setStreamedContent("");
       abortControllerRef.current = new AbortController();
 
       const url = buildUrl(api.messages.create.path, { id: conversationId });
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (pin) headers["x-chat-pin"] = pin;
       
       try {
         const response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(data),
           credentials: "include",
           signal: abortControllerRef.current.signal,
@@ -45,8 +44,8 @@ export function useSendMessage(conversationId: number) {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n\n"); // SSE messages usually delimited by double newline
-          buffer = lines.pop() || ""; // Keep incomplete line in buffer
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || "";
 
           for (const line of lines) {
             if (line.startsWith("data: ")) {
@@ -58,15 +57,11 @@ export function useSendMessage(conversationId: number) {
                   setStreamedContent(prev => prev + event.content);
                 }
                 
-                if (event.done) {
-                  // Stream finished
-                }
-                
                 if (event.error) {
                   throw new Error(event.error);
                 }
               } catch (e) {
-                console.error("Failed to parse SSE JSON", e);
+                // ignore parse errors on individual chunks
               }
             }
           }
@@ -80,14 +75,14 @@ export function useSendMessage(conversationId: number) {
       }
     },
     onSuccess: () => {
-      // Invalidate query to fetch the full persisted message history including the assistant's final response
       queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, conversationId] });
+      queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
       setStreamedContent("");
     },
     onError: (error) => {
       toast({
         title: "فشل الإرسال",
-        description: error.message || "حدث خطأ أثناء إرسال الرسالة",
+        description: (error as Error).message || "حدث خطأ أثناء إرسال الرسالة",
         variant: "destructive",
       });
     },

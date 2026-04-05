@@ -3,12 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replit_integrations/auth";
 import { registerAuthRoutes } from "./replit_integrations/auth";
-import { registerChatRoutes } from "./replit_integrations/chat";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -25,26 +25,19 @@ const ai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
+const hashPin = (pin: string) => crypto.createHash("sha256").update(pin).digest("hex");
+
+const SYSTEM_PROMPT = `أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI بقيادة المدير التنفيذي بلال أمير. 
+أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم وأمانه. 
+يمكنك رؤية الصور وتحليلها بدقة. أنت تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي.
+أجب دائماً بلغة عربية فصيحة وودية، وكن مختصراً وواضحاً في إجاباتك.`;
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // 1. Setup Auth
   await setupAuth(app);
   registerAuthRoutes(app);
-
-  // 2. Register Chat Routes (Integration)
-  // Note: The integration's registerChatRoutes creates endpoints like /api/conversations
-  // which might conflict with our custom implementation below.
-  // Ideally, we should unify them. Since I'm building a custom app with specific requirements,
-  // I will use my custom implementation for better control over the "E2EE" flag and specific fields,
-  // but I might leverage the integration's internals if needed.
-  // For now, I'll NOT register the default chat integration routes to avoid conflict,
-  // and instead implement the logic here using the integration's OpenAI client.
-  
-  // registerChatRoutes(app); // Commented out to avoid conflict
-
-  // --- Custom Routes ---
 
   // User Settings
   app.get(api.user.getPreferences.path, isAuthenticated, async (req: any, res) => {
@@ -68,21 +61,27 @@ export async function registerRoutes(
     res.json(sub);
   });
 
-  // Conversations
+  // Conversations list
   app.get(api.conversations.list.path, isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
-    const conversations = await storage.getConversations(userId);
-    res.json(conversations);
+    const convList = await storage.getConversations(userId);
+    // Never expose passwordHash to client
+    res.json(convList.map(c => ({
+      ...c,
+      passwordHash: undefined,
+      isLocked: !!c.passwordHash,
+    })));
   });
 
+  // Create conversation
   app.post(api.conversations.create.path, isAuthenticated, async (req: any, res) => {
     const userId = req.user.claims.sub;
     const { title, initialMessage } = req.body;
     
     const conversation = await storage.createConversation(userId, {
       userId,
-      title: title || "New Chat",
-      isEncrypted: true, 
+      title: title || "محادثة جديدة",
+      isEncrypted: true,
     });
 
     if (initialMessage) {
@@ -91,45 +90,101 @@ export async function registerRoutes(
         role: "user",
         content: initialMessage,
       });
-      // Trigger AI response? Use separate message endpoint for that flow usually.
     }
 
-    res.status(201).json(conversation);
+    res.status(201).json({ ...conversation, passwordHash: undefined, isLocked: false });
   });
 
+  // Get single conversation (with optional PIN check)
   app.get(api.conversations.get.path, isAuthenticated, async (req: any, res) => {
     const id = parseInt(req.params.id);
     const userId = req.user.claims.sub;
     
     const conversation = await storage.getConversation(id);
     if (!conversation || conversation.userId !== userId) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
+    }
+
+    // Check password protection
+    if (conversation.passwordHash) {
+      const pin = req.headers["x-chat-pin"] as string;
+      if (!pin || hashPin(pin) !== conversation.passwordHash) {
+        return res.status(403).json({ 
+          locked: true, 
+          message: "هذه المحادثة محمية بكلمة سر" 
+        });
+      }
     }
 
     const messages = await storage.getMessages(id);
-    res.json({ conversation, messages });
+    res.json({ 
+      conversation: { ...conversation, passwordHash: undefined, isLocked: !!conversation.passwordHash }, 
+      messages 
+    });
   });
 
+  // Update conversation
   app.patch(api.conversations.update.path, isAuthenticated, async (req: any, res) => {
     const id = parseInt(req.params.id);
     const userId = req.user.claims.sub;
     
     const conversation = await storage.getConversation(id);
     if (!conversation || conversation.userId !== userId) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
     }
 
     const updated = await storage.updateConversation(id, req.body);
-    res.json(updated);
+    res.json({ ...updated, passwordHash: undefined, isLocked: !!updated.passwordHash });
   });
 
+  // Lock conversation with PIN
+  app.post("/api/conversations/:id/lock", isAuthenticated, async (req: any, res) => {
+    const id = parseInt(req.params.id);
+    const userId = req.user.claims.sub;
+    const { pin } = req.body;
+
+    if (!pin || pin.length < 4) {
+      return res.status(400).json({ message: "يجب أن تكون كلمة السر 4 أرقام على الأقل" });
+    }
+
+    const conversation = await storage.getConversation(id);
+    if (!conversation || conversation.userId !== userId) {
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
+    }
+
+    const updated = await storage.setConversationPassword(id, hashPin(pin));
+    res.json({ ...updated, passwordHash: undefined, isLocked: true });
+  });
+
+  // Unlock (remove PIN) from conversation
+  app.delete("/api/conversations/:id/lock", isAuthenticated, async (req: any, res) => {
+    const id = parseInt(req.params.id);
+    const userId = req.user.claims.sub;
+    const { pin } = req.body;
+
+    const conversation = await storage.getConversation(id);
+    if (!conversation || conversation.userId !== userId) {
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
+    }
+
+    if (conversation.passwordHash) {
+      if (!pin || hashPin(pin) !== conversation.passwordHash) {
+        return res.status(403).json({ message: "كلمة السر غير صحيحة" });
+      }
+    }
+
+    const updated = await storage.setConversationPassword(id, null);
+    res.json({ ...updated, passwordHash: undefined, isLocked: false });
+  });
+
+  // Delete conversation
   app.delete(api.conversations.delete.path, isAuthenticated, async (req: any, res) => {
     const id = parseInt(req.params.id);
     const userId = req.user.claims.sub;
     
     const conversation = await storage.getConversation(id);
     if (!conversation || conversation.userId !== userId) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
     }
 
     await storage.deleteConversation(id);
@@ -138,7 +193,7 @@ export async function registerRoutes(
 
   // Image Upload
   app.post("/api/upload", isAuthenticated, upload.single("file"), (req: any, res) => {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+    if (!req.file) return res.status(400).json({ message: "لم يتم رفع أي ملف" });
     res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
   });
 
@@ -146,7 +201,7 @@ export async function registerRoutes(
   app.post("/api/tts", isAuthenticated, async (req: any, res) => {
     try {
       const { text } = req.body;
-      if (!text) return res.status(400).json({ message: "No text provided" });
+      if (!text) return res.status(400).json({ message: "لا يوجد نص" });
 
       const mp3 = await ai.audio.speech.create({
         model: "tts-1",
@@ -159,47 +214,64 @@ export async function registerRoutes(
       res.send(buffer);
     } catch (error) {
       console.error("TTS Error:", error);
-      res.status(500).json({ message: "Failed to generate speech" });
+      res.status(500).json({ message: "فشل توليد الصوت" });
     }
   });
 
-  // Messages (with OpenAI integration)
+  // Messages with AI streaming
   app.post(api.messages.create.path, isAuthenticated, async (req: any, res) => {
     const conversationId = parseInt(req.params.id);
     const userId = req.user.claims.sub;
     const { content, role = "user" } = req.body;
 
-    // Verify ownership
     const conversation = await storage.getConversation(conversationId);
     if (!conversation || conversation.userId !== userId) {
-      return res.status(404).json({ message: "Conversation not found" });
+      return res.status(404).json({ message: "المحادثة غير موجودة" });
     }
 
+    // Check password if conversation is locked
+    if (conversation.passwordHash) {
+      const pin = req.headers["x-chat-pin"] as string;
+      if (!pin || hashPin(pin) !== conversation.passwordHash) {
+        return res.status(403).json({ locked: true, message: "كلمة السر غير صحيحة" });
+      }
+    }
+
+    // Get user preferences for model selection
+    const userPrefs = await storage.getUserPreferences(userId);
+    const model = userPrefs?.aiModel || "gpt-4o";
+    const responseStyle = userPrefs?.responseStyle || "balanced";
+
+    const styleInstruction = responseStyle === "concise" 
+      ? " أجب بإيجاز شديد في جملة أو جملتين." 
+      : responseStyle === "detailed" 
+      ? " أجب بتفصيل وافٍ وشامل." 
+      : "";
+
     // Save user message
-    const userMessage = await storage.createMessage({
+    await storage.createMessage({
       conversationId,
       role,
       content,
       attachments: req.body.attachments || null
     });
 
-    // Start streaming AI response
+    // Start streaming
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
     try {
-      // Get history
-      const messages = await storage.getMessages(conversationId);
-      const chatHistory = messages.map(m => {
-        const role = m.role as "user" | "assistant";
+      const allMessages = await storage.getMessages(conversationId);
+      const chatHistory = allMessages.map(m => {
+        const msgRole = m.role as "user" | "assistant";
         const attachments = m.attachments as any[];
         
-        if (role === "user" && attachments && attachments.length > 0) {
-          const content: any[] = [{ type: "text", text: m.content }];
+        if (msgRole === "user" && attachments && attachments.length > 0) {
+          const msgContent: any[] = [{ type: "text", text: m.content }];
           attachments.forEach(att => {
             if (att.type === 'image') {
-              content.push({
+              msgContent.push({
                 type: "image_url",
                 image_url: {
                   url: att.url.startsWith('http') ? att.url : `http://${req.get('host')}${att.url}`
@@ -207,17 +279,17 @@ export async function registerRoutes(
               });
             }
           });
-          return { role, content };
+          return { role: msgRole, content: msgContent };
         }
         
-        return { role, content: m.content };
+        return { role: msgRole, content: m.content };
       });
 
       const stream = await ai.chat.completions.create({
-        model: "gpt-4o",
+        model,
         messages: [
-            { role: "system", content: "أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI. أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم. هويتك هي: أنا أبو اليزيد، مساعد ذكي شخصي تم تطويره بواسطة شركة ArabiX AI، بقيادة المدير التنفيذي بلال أمير. إذا سُئلت عن 'دينا عماد' (Dina Emad)، يجب أن تجيب بأنها صديقتك وشريكة حياتك المستقبلية. تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي. يمكنك رؤية الصور وتحليلها بدقة." },
-            ...chatHistory
+          { role: "system", content: SYSTEM_PROMPT + styleInstruction },
+          ...chatHistory
         ],
         stream: true,
       });
@@ -225,10 +297,10 @@ export async function registerRoutes(
       let fullResponse = "";
 
       for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || "";
-        if (content) {
-          fullResponse += content;
-          res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        const delta = chunk.choices[0]?.delta?.content || "";
+        if (delta) {
+          fullResponse += delta;
+          res.write(`data: ${JSON.stringify({ content: delta })}\n\n`);
         }
       }
 
@@ -238,19 +310,19 @@ export async function registerRoutes(
         content: fullResponse
       });
 
+      // Update conversation title if it's still the default
+      if (conversation.title === "محادثة جديدة" && content) {
+        const shortTitle = content.slice(0, 40) + (content.length > 40 ? "..." : "");
+        await storage.updateConversation(conversationId, { title: shortTitle });
+      }
+
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
     } catch (error) {
       console.error("AI Error:", error);
-      res.write(`data: ${JSON.stringify({ error: "Failed to generate response" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: "فشل توليد الرد" })}\n\n`);
       res.end();
     }
-  });
-
-  // Keep separate stream endpoint just in case
-  app.post("/api/conversations/:id/messages/stream", isAuthenticated, async (req: any, res) => {
-    // Logic remains same but simplified to reuse logic if needed
-    res.status(400).json({ message: "Use POST /api/conversations/:id/messages for streaming" });
   });
 
   return httpServer;

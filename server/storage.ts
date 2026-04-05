@@ -7,28 +7,24 @@ import {
 } from "@shared/schema";
 
 export interface IStorage {
-  // User Preferences
   getUserPreferences(userId: string): Promise<UserPreferences | undefined>;
   updateUserPreferences(userId: string, prefs: Partial<InsertUserPreferences>): Promise<UserPreferences>;
 
-  // Subscriptions
   getSubscription(userId: string): Promise<Subscription | undefined>;
   createSubscription(userId: string, plan?: string): Promise<Subscription>;
 
-  // Conversations
   getConversations(userId: string): Promise<Conversation[]>;
   getConversation(id: number): Promise<Conversation | undefined>;
   createConversation(userId: string, conversation: InsertConversation): Promise<Conversation>;
   updateConversation(id: number, conversation: Partial<InsertConversation>): Promise<Conversation>;
   deleteConversation(id: number): Promise<void>;
+  setConversationPassword(id: number, hash: string | null): Promise<Conversation>;
 
-  // Messages
   getMessages(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // --- User Preferences ---
   async getUserPreferences(userId: string): Promise<UserPreferences | undefined> {
     const [prefs] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
     return prefs;
@@ -46,7 +42,6 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // --- Subscriptions ---
   async getSubscription(userId: string): Promise<Subscription | undefined> {
     const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId));
     return sub;
@@ -64,7 +59,6 @@ export class DatabaseStorage implements IStorage {
     return sub;
   }
 
-  // --- Conversations ---
   async getConversations(userId: string): Promise<Conversation[]> {
     return db
       .select()
@@ -79,17 +73,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createConversation(userId: string, conversation: InsertConversation): Promise<Conversation> {
-    const [conv] = await db
-      .insert(conversations)
-      .values({ ...conversation, userId })
-      .returning();
+    const [conv] = await db.insert(conversations).values(conversation).returning();
     return conv;
   }
 
-  async updateConversation(id: number, updates: Partial<InsertConversation>): Promise<Conversation> {
+  async updateConversation(id: number, conversation: Partial<InsertConversation>): Promise<Conversation> {
     const [updated] = await db
       .update(conversations)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...conversation, updatedAt: new Date() })
       .where(eq(conversations.id, id))
       .returning();
     return updated;
@@ -99,7 +90,15 @@ export class DatabaseStorage implements IStorage {
     await db.delete(conversations).where(eq(conversations.id, id));
   }
 
-  // --- Messages ---
+  async setConversationPassword(id: number, hash: string | null): Promise<Conversation> {
+    const [updated] = await db
+      .update(conversations)
+      .set({ passwordHash: hash, updatedAt: new Date() })
+      .where(eq(conversations.id, id))
+      .returning();
+    return updated;
+  }
+
   async getMessages(conversationId: number): Promise<Message[]> {
     return db
       .select()
@@ -110,12 +109,6 @@ export class DatabaseStorage implements IStorage {
 
   async createMessage(message: InsertMessage): Promise<Message> {
     const [msg] = await db.insert(messages).values(message).returning();
-    
-    // Update conversation timestamp
-    await db.update(conversations)
-      .set({ updatedAt: new Date() })
-      .where(eq(conversations.id, message.conversationId));
-      
     return msg;
   }
 }

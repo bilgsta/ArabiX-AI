@@ -28,20 +28,22 @@ export const users = pgTable("users", {
 // --- User Preferences ---
 export const userPreferences = pgTable("user_preferences", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().unique(), // FK to auth.users.id
+  userId: varchar("user_id").notNull().unique(),
   language: text("language").default("ar").notNull(),
-  theme: text("theme").default("system").notNull(), // light, dark, system
-  fontSize: text("font_size").default("medium").notNull(), // small, medium, large
+  theme: text("theme").default("system").notNull(),
+  fontSize: text("font_size").default("medium").notNull(),
   accentColor: text("accent_color").default("green").notNull(),
   notificationsEnabled: boolean("notifications_enabled").default(true).notNull(),
+  aiModel: text("ai_model").default("gpt-4o").notNull(),
+  responseStyle: text("response_style").default("balanced").notNull(),
 });
 
 // --- Subscriptions ---
 export const subscriptions = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique(),
-  plan: text("plan").default("free").notNull(), // free, premium
-  status: text("status").default("active").notNull(), // active, cancelled, expired
+  plan: text("plan").default("free").notNull(),
+  status: text("status").default("active").notNull(),
   startDate: timestamp("start_date").defaultNow(),
   endDate: timestamp("end_date"),
 });
@@ -49,11 +51,12 @@ export const subscriptions = pgTable("subscriptions", {
 // --- Conversations ---
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull(), // FK to auth.users.id
+  userId: varchar("user_id").notNull(),
   title: text("title").notNull(),
-  isEncrypted: boolean("is_encrypted").default(true).notNull(), // Visual indicator
+  isEncrypted: boolean("is_encrypted").default(true).notNull(),
   isPinned: boolean("is_pinned").default(false).notNull(),
   isArchived: boolean("is_archived").default(false).notNull(),
+  passwordHash: text("password_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -62,15 +65,14 @@ export const conversations = pgTable("conversations", {
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   conversationId: integer("conversation_id").notNull().references(() => conversations.id, { onDelete: 'cascade' }),
-  role: text("role").notNull(), // user, assistant, system
+  role: text("role").notNull(),
   content: text("content").notNull(),
-  // For file attachments (images, docs) - simple storage
   attachments: jsonb("attachments").$type<{
     type: 'image' | 'file' | 'audio';
     url: string;
     name: string;
     size?: number;
-  }[]>(), 
+  }[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -89,7 +91,7 @@ export const messagesRelations = relations(messages, ({ one }) => ({
 // --- Schemas ---
 export const insertUserPreferencesSchema = createInsertSchema(userPreferences).omit({ id: true });
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, startDate: true });
-export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true, passwordHash: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
 // --- Types ---
@@ -102,7 +104,9 @@ export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
-// --- API Types ---
+// Conversation with computed isLocked field (no passwordHash exposed)
+export type ConversationPublic = Omit<Conversation, 'passwordHash'> & { isLocked: boolean };
+
 export type CreateConversationRequest = {
   title?: string;
   initialMessage?: string;
@@ -112,11 +116,10 @@ export type UpdateConversationRequest = Partial<InsertConversation>;
 
 export type CreateMessageRequest = {
   content: string;
-  role?: 'user' | 'assistant'; // Defaults to user
+  role?: 'user' | 'assistant';
   attachments?: Message['attachments'];
 };
 
 export type ChatResponse = {
   message: Message;
 };
-
