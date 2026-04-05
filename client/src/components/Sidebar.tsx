@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, MessageSquare, Settings, LogOut, Lock, Trash2, Search, X, PanelRightOpen, MoreVertical, Unlock } from "lucide-react";
+import { Plus, MessageSquare, Settings, LogOut, Lock, Trash2, Search, X, PanelRightOpen, MoreVertical, Unlock, Mic } from "lucide-react";
 import { useConversations, useCreateConversation, useDeleteConversation, useLockConversation, useUnlockConversation } from "@/hooks/use-conversations";
 import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -177,17 +177,23 @@ function SidebarInner({ onClose }: { onClose?: () => void }) {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs" asChild>
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="outline" size="sm" className="gap-1 text-xs" asChild>
               <Link href="/settings">
                 <Settings className="w-3.5 h-3.5" />
                 <span>الإعدادات</span>
               </Link>
             </Button>
+            <Button variant="outline" size="sm" className="gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10 border-primary/20" asChild>
+              <Link href="/voice">
+                <Mic className="w-3.5 h-3.5" />
+                <span>صوتي</span>
+              </Link>
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
-              className="gap-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+              className="gap-1 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
               onClick={() => logout()}
             >
               <LogOut className="w-3.5 h-3.5 rtl-flip" />

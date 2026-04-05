@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import ChatPage from "@/pages/ChatPage";
 import Settings from "@/pages/Settings";
+import VoicePage from "@/pages/VoicePage";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/c/:id" component={ChatPage} />
       <Route path="/settings" component={Settings} />
+      <Route path="/voice" component={VoicePage} />
       <Route component={NotFound} />
     </Switch>
   );

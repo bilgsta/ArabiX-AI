@@ -197,6 +197,60 @@ export async function registerRoutes(
     res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
   });
 
+  // Voice chat — simple rate limiting per user (20 requests/minute)
+  const voiceRateMap = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/voice/chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const now = Date.now();
+      const limit = voiceRateMap.get(userId);
+
+      if (!limit || now > limit.resetAt) {
+        voiceRateMap.set(userId, { count: 1, resetAt: now + 60_000 });
+      } else if (limit.count >= 20) {
+        return res.status(429).json({ message: "وصلت للحد الأقصى من الطلبات. انتظر دقيقة وحاول مجددًا." });
+      } else {
+        limit.count++;
+      }
+
+      const { message, history = [] } = req.body;
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ message: "الرسالة مطلوبة" });
+      }
+
+      // Build message history with system prompt
+      const systemPrompt = `أنت أبو اليزيد، مساعد ذكاء اصطناعي عربي شخصي طورته شركة ArabiX AI.
+تتحدث بطريقة طبيعية ومناسبة للمحادثة الصوتية — إجابات موجزة وواضحة.
+إذا سألك المستخدم بالعربي أجبه بالعربي، وإذا سألك بالإنجليزي أجبه بالإنجليزي.`;
+
+      const chatHistory = [
+        { role: "system" as const, content: systemPrompt },
+        ...history.slice(-10).map((m: any) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        { role: "user" as const, content: message },
+      ];
+
+      // Get user's preferred AI model
+      const prefs = await storage.getUserPreferences(userId).catch(() => null);
+      const model = (prefs as any)?.aiModel || "gpt-4o";
+
+      const completion = await ai.chat.completions.create({
+        model,
+        messages: chatHistory,
+        max_tokens: 300, // Keep voice responses short
+        temperature: 0.7,
+      });
+
+      const reply = completion.choices[0]?.message?.content || "عذرًا، لم أستطع الرد.";
+      res.json({ reply });
+    } catch (error) {
+      console.error("Voice chat error:", error);
+      res.status(500).json({ message: "فشل الاتصال بالمساعد. حاول مرة أخرى." });
+    }
+  });
+
   // Text to Speech
   app.post("/api/tts", isAuthenticated, async (req: any, res) => {
     try {
