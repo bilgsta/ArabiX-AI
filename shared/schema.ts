@@ -36,6 +36,12 @@ export const userPreferences = pgTable("user_preferences", {
   notificationsEnabled: boolean("notifications_enabled").default(true).notNull(),
   aiModel: text("ai_model").default("gpt-4o").notNull(),
   responseStyle: text("response_style").default("balanced").notNull(),
+  // Personality & memory
+  personality: text("personality").default("professional").notNull(),
+  userName: text("user_name"),
+  // Voice settings
+  voiceAutoPlay: boolean("voice_auto_play").default(true).notNull(),
+  continuousVoice: boolean("continuous_voice").default(false).notNull(),
 });
 
 // --- Subscriptions ---

@@ -4,13 +4,58 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Moon, Sun, Bell, Globe, Cpu, Sliders, Shield, Trash2, LogOut, Palette } from "lucide-react";
+import { Moon, Sun, Bell, Globe, Cpu, Sliders, Shield, Trash2, LogOut, Palette, Mic, Brain, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
+import { cn } from "@/lib/utils";
+
+const PERSONALITIES = [
+  {
+    id: "professional",
+    label: "محترف",
+    icon: "💼",
+    description: "رسمي، دقيق، ومنظم",
+  },
+  {
+    id: "egyptian",
+    label: "عامية مصرية",
+    icon: "🇪🇬",
+    description: "ودود وخفيف على القلب",
+  },
+  {
+    id: "developer",
+    label: "مطور",
+    icon: "👨‍💻",
+    description: "تقني ومتخصص في البرمجة",
+  },
+  {
+    id: "motivational",
+    label: "مدرب تحفيزي",
+    icon: "🚀",
+    description: "محفّز وإيجابي دائماً",
+  },
+];
+
+// Apply theme and mirror to localStorage for flash-free load
+function applyTheme(t: string) {
+  try {
+    localStorage.setItem("abu-theme", t);
+  } catch {}
+  if (t === "dark") {
+    document.documentElement.classList.add("dark");
+  } else if (t === "light") {
+    document.documentElement.classList.remove("dark");
+  } else {
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.classList.toggle("dark", isDark);
+    try { localStorage.removeItem("abu-theme"); } catch {}
+  }
+}
 
 export default function Settings() {
   const { user, logout } = useAuth();
@@ -31,7 +76,12 @@ export default function Settings() {
   const [responseStyle, setResponseStyle] = useState("balanced");
   const [fontSize, setFontSize] = useState("medium");
   const [notifications, setNotifications] = useState(true);
+  const [personality, setPersonality] = useState("professional");
+  const [userName, setUserName] = useState("");
+  const [voiceAutoPlay, setVoiceAutoPlay] = useState(true);
+  const [continuousVoice, setContinuousVoice] = useState(false);
 
+  // Sync from DB prefs
   useEffect(() => {
     if (prefs) {
       setTheme(prefs.theme || "system");
@@ -39,26 +89,22 @@ export default function Settings() {
       setResponseStyle(prefs.responseStyle || "balanced");
       setFontSize(prefs.fontSize || "medium");
       setNotifications(prefs.notificationsEnabled ?? true);
+      setPersonality(prefs.personality || "professional");
+      setUserName(prefs.userName || "");
+      setVoiceAutoPlay(prefs.voiceAutoPlay ?? true);
+      setContinuousVoice(prefs.continuousVoice ?? false);
     }
   }, [prefs]);
 
+  // Apply theme immediately and save to localStorage for no-flash
   useEffect(() => {
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else if (theme === "light") {
-      document.documentElement.classList.remove("dark");
-    } else {
-      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", isDark);
-    }
+    applyTheme(theme);
   }, [theme]);
 
+  // Apply font size
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("text-sm-app", "text-base-app", "text-lg-app");
-    if (fontSize === "small") root.style.fontSize = "14px";
-    else if (fontSize === "large") root.style.fontSize = "18px";
-    else root.style.fontSize = "16px";
+    root.style.fontSize = fontSize === "small" ? "14px" : fontSize === "large" ? "18px" : "16px";
   }, [fontSize]);
 
   const updatePrefs = useMutation({
@@ -74,7 +120,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.user.getPreferences.path] });
-      toast({ title: "تم الحفظ", description: "تم حفظ إعداداتك بنجاح." });
+      toast({ title: "تم الحفظ ✓", description: "تم حفظ إعداداتك بنجاح." });
     },
     onError: (err: Error) => {
       toast({ title: "خطأ", description: err.message, variant: "destructive" });
@@ -82,20 +128,41 @@ export default function Settings() {
   });
 
   const handleSave = () => {
-    updatePrefs.mutate({ theme, aiModel, responseStyle, fontSize, notificationsEnabled: notifications });
+    updatePrefs.mutate({
+      theme,
+      aiModel,
+      responseStyle,
+      fontSize,
+      notificationsEnabled: notifications,
+      personality,
+      userName: userName.trim() || null,
+      voiceAutoPlay,
+      continuousVoice,
+    });
+  };
+
+  const clearMemory = async () => {
+    if (!confirm("سيتم مسح اسمك المحفوظ وإعادة ضبط الذاكرة الشخصية. هل تريد المتابعة؟")) return;
+    setUserName("");
+    updatePrefs.mutate({ userName: null });
+    toast({ title: "تم مسح الذاكرة", description: "تم إعادة ضبط الذاكرة الشخصية." });
   };
 
   const clearAllConversations = async () => {
     if (!confirm("هل أنت متأكد من حذف جميع المحادثات؟ هذا الإجراء لا يمكن التراجع عنه.")) return;
-    const res = await fetch("/api/conversations", { credentials: "include" });
-    const convList = await res.json();
-    await Promise.all(
-      convList.map((c: { id: number }) => 
-        fetch(`/api/conversations/${c.id}`, { method: "DELETE", credentials: "include" })
-      )
-    );
-    queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
-    toast({ title: "تم", description: "تم حذف جميع المحادثات." });
+    try {
+      const res = await fetch("/api/conversations", { credentials: "include" });
+      const convList = await res.json();
+      await Promise.all(
+        convList.map((c: { id: number }) =>
+          fetch(`/api/conversations/${c.id}`, { method: "DELETE", credentials: "include" })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
+      toast({ title: "تم", description: "تم حذف جميع المحادثات." });
+    } catch {
+      toast({ title: "خطأ", description: "فشل حذف المحادثات.", variant: "destructive" });
+    }
   };
 
   return (
@@ -103,13 +170,13 @@ export default function Settings() {
       <Sidebar />
       <main className="flex-1 flex flex-col md:mr-80 h-full overflow-y-auto">
         <div className="max-w-2xl mx-auto w-full space-y-6 p-6 md:p-8">
-          
+
           <header className="mb-6">
             <h1 className="text-3xl font-bold mb-1">الإعدادات</h1>
             <p className="text-muted-foreground">تخصيص تجربة أبو اليزيد الخاصة بك.</p>
           </header>
 
-          {/* Account Section */}
+          {/* Account */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
@@ -142,17 +209,78 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* AI Settings */}
+          {/* Long-Term Memory */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" />
+                الذاكرة الشخصية
+              </CardTitle>
+              <CardDescription>معلومات يتذكرها المساعد عنك في كل محادثة.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="font-medium flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  اسمك المفضل
+                </Label>
+                <Input
+                  placeholder="مثال: أحمد، أستاذ محمد..."
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="text-right"
+                  dir="rtl"
+                />
+                <p className="text-xs text-muted-foreground">سيخاطبك المساعد بهذا الاسم في الردود.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={clearMemory} className="gap-2 text-muted-foreground">
+                <Brain className="w-4 h-4" />
+                مسح الذاكرة الشخصية
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* AI Personality */}
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2">
                 <Cpu className="w-5 h-5 text-primary" />
+                شخصية المساعد
+              </CardTitle>
+              <CardDescription>اختر أسلوب أبو اليزيد في الحديث.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {PERSONALITIES.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setPersonality(p.id)}
+                    className={cn(
+                      "flex flex-col items-start gap-1.5 p-4 rounded-xl border-2 text-right transition-all",
+                      personality === p.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40 hover:bg-muted/40"
+                    )}
+                  >
+                    <span className="text-2xl">{p.icon}</span>
+                    <span className="font-semibold text-sm">{p.label}</span>
+                    <span className="text-xs text-muted-foreground">{p.description}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Model & Style */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-primary" />
                 إعدادات الذكاء الاصطناعي
               </CardTitle>
-              <CardDescription>تحكم في سلوك المساعد وأدائه.</CardDescription>
+              <CardDescription>تحكم في أداء وأسلوب الردود.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="font-medium">موديل الذكاء الاصطناعي</Label>
@@ -185,7 +313,33 @@ export default function Settings() {
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
 
+          {/* Voice Settings */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-2">
+                <Mic className="w-5 h-5 text-primary" />
+                إعدادات الصوت
+              </CardTitle>
+              <CardDescription>تحكم في وضع المحادثة الصوتية.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-medium">تشغيل الردود تلقائياً</Label>
+                  <p className="text-xs text-muted-foreground">قراءة ردود المساعد بالصوت فوراً</p>
+                </div>
+                <Switch checked={voiceAutoPlay} onCheckedChange={setVoiceAutoPlay} />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-medium">وضع المحادثة المستمرة</Label>
+                  <p className="text-xs text-muted-foreground">الاستماع تلقائياً بعد انتهاء الرد</p>
+                </div>
+                <Switch checked={continuousVoice} onCheckedChange={setContinuousVoice} />
+              </div>
             </CardContent>
           </Card>
 
@@ -199,7 +353,6 @@ export default function Settings() {
               <CardDescription>تحكم في كيفية ظهور التطبيق.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-muted rounded-lg">
@@ -277,13 +430,12 @@ export default function Settings() {
                 </div>
                 <Switch checked={notifications} onCheckedChange={setNotifications} />
               </div>
-
             </CardContent>
           </Card>
 
           {/* Save Button */}
-          <Button 
-            className="w-full bg-primary hover:bg-primary/90 shadow-md" 
+          <Button
+            className="w-full bg-primary hover:bg-primary/90 shadow-md"
             size="lg"
             onClick={handleSave}
             disabled={updatePrefs.isPending}
@@ -306,12 +458,7 @@ export default function Settings() {
                   <p className="font-medium text-sm">حذف جميع المحادثات</p>
                   <p className="text-xs text-muted-foreground">سيتم حذف كل المحادثات والرسائل نهائياً</p>
                 </div>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  onClick={clearAllConversations}
-                  className="gap-2"
-                >
+                <Button variant="destructive" size="sm" onClick={clearAllConversations} className="gap-2">
                   <Trash2 className="w-4 h-4" />
                   حذف الكل
                 </Button>
@@ -321,8 +468,8 @@ export default function Settings() {
                   <p className="font-medium text-sm">تسجيل الخروج</p>
                   <p className="text-xs text-muted-foreground">تسجيل الخروج من جميع الأجهزة</p>
                 </div>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => logout()}
                   className="gap-2 text-destructive hover:text-destructive border-destructive/20"
@@ -334,7 +481,6 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Footer */}
           <p className="text-center text-xs text-muted-foreground pb-6">
             أبو اليزيد v2.0 · تطوير ArabiX AI · المدير التنفيذي: بلال أمير
           </p>

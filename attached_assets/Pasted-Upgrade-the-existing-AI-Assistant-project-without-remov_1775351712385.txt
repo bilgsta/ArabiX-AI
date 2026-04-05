@@ -1,0 +1,85 @@
+Upgrade the existing AI Assistant project without removing, breaking, or modifying any current features.
+
+IMPORTANT:
+- Do NOT delete any existing functionality.
+- Do NOT refactor working features unless necessary.
+- Only ADD improvements and FIX the mentioned issues.
+- Keep the current UI structure and branding.
+
+====================================
+NEW FEATURES TO ADD
+====================================
+
+1) Persistent Theme Fix (Dark/Light Mode Bug Fix)
+- Fix the issue where dark mode and light mode conflict or reset.
+- Save theme preference per user account in the database.
+- If user is logged in → load theme from database.
+- If user is not logged in → save theme in localStorage.
+- Ensure theme loads immediately on page load (no flashing between modes).
+- Prevent theme overlap or double class conflicts.
+- Use a single theme state manager.
+
+2) Long-Term Memory System
+- Store user preferences (name, language, selected personality).
+- Keep short-term chat memory (conversation context).
+- Add “Clear Memory” button in settings.
+
+3) AI Personalities
+- Add selectable assistant modes:
+  - Professional
+  - Egyptian Casual
+  - Developer
+  - Motivational Coach
+- Save selected mode per user in database.
+
+4) Streaming Responses
+- Enable streaming response from OpenAI.
+- Show typing animation while streaming.
+- Keep current message UI design.
+
+5) Sidebar Chat History
+- Add sidebar with previous conversations.
+- Each user has separate stored chats.
+- Clicking chat loads full conversation.
+
+6) Voice Improvements
+- Continuous conversation mode toggle.
+- Voice auto-play after AI response.
+- Save voice settings per user.
+
+7) Performance & Stability
+- Add better error handling for:
+  - API failure
+  - Network issues
+  - Microphone denied
+- Add loading indicator while waiting for AI response.
+- Add basic request rate limiting per user.
+
+====================================
+SECURITY
+====================================
+
+- Do NOT expose API key.
+- Keep API key in environment variables only.
+- Validate all inputs.
+- Protect routes that require authentication.
+
+====================================
+DATABASE REQUIREMENTS
+====================================
+
+Add fields to user model:
+- themePreference
+- personalityMode
+- voiceSettings
+- memoryPreferences
+
+Do not remove existing database structure.
+Only extend it safely with migrations if needed.
+
+====================================
+GOAL
+====================================
+
+Make the app more professional and production-ready,
+while keeping all existing features fully working.

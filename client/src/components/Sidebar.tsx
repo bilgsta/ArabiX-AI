@@ -7,7 +7,7 @@ import { useConversations, useCreateConversation, useDeleteConversation, useLock
 import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { SetPasswordDialog } from "@/components/PasswordDialog";
 import { useState } from "react";
 
@@ -224,6 +224,7 @@ export function Sidebar() {
           </Button>
         </SheetTrigger>
         <SheetContent side="right" className="p-0 w-80">
+          <SheetTitle className="sr-only">القائمة الجانبية</SheetTitle>
           <SidebarInner onClose={() => setMobileOpen(false)} />
         </SheetContent>
       </Sheet>

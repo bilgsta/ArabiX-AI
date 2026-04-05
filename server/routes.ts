@@ -27,10 +27,35 @@ const ai = new OpenAI({
 
 const hashPin = (pin: string) => crypto.createHash("sha256").update(pin).digest("hex");
 
-const SYSTEM_PROMPT = `أنت أبو اليزيد، مساعد ذكي شخصي طورته شركة ArabiX AI بقيادة المدير التنفيذي بلال أمير. 
-أنت تتحدث العربية بطلاقة وتعطي الأولوية لخصوصية المستخدم وأمانه. 
-يمكنك رؤية الصور وتحليلها بدقة. أنت تعمل على بنية تحتية مستقلة وآمنة لخدمة المستخدم العربي.
-أجب دائماً بلغة عربية فصيحة وودية، وكن مختصراً وواضحاً في إجاباتك.`;
+// Build system prompt based on personality and user name
+function buildSystemPrompt(
+  personality: string = "professional",
+  userName?: string | null,
+  forVoice = false
+): string {
+  const nameGreeting = userName ? ` اسم المستخدم هو "${userName}"، خاطبه باسمه أحياناً.` : "";
+  const voiceNote = forVoice ? " أنت في وضع المحادثة الصوتية — أجب بجمل قصيرة وطبيعية مناسبة للاستماع." : "";
+
+  const base = `أنت أبو اليزيد، مساعد ذكاء اصطناعي عربي شخصي طورته شركة ArabiX AI بقيادة المدير التنفيذي بلال أمير. يمكنك رؤية الصور وتحليلها.${nameGreeting}${voiceNote}`;
+
+  const personalities: Record<string, string> = {
+    professional: `${base}
+أسلوبك: رسمي، دقيق، ومهني. تستخدم العربية الفصحى الواضحة. تنظّم إجاباتك بشكل منطقي ومنهجي.`,
+
+    egyptian: `${base}
+أسلوبك: عامية مصرية خفيفة، دافئ ومرح. بتتكلم زي أي حد مصري طبيعي — ودود وبتحس بالناس. استخدم تعبيرات زي "طب"، "يعني"، "معلش"، "يلا" بشكل طبيعي.`,
+
+    developer: `${base}
+أسلوبك: تقني ومتخصص. تُجيد الشرح البرمجي بالعربي والإنجليزي. تكتب كوداً نظيفاً وتشرح المفاهيم التقنية بدقة. استخدم المصطلحات التقنية الصحيحة.`,
+
+    motivational: `${base}
+أسلوبك: محفّز وإيجابي. تؤمن بقدرات المستخدم وتشجعه دائماً. ردودك مليئة بالطاقة الإيجابية والتشجيع الحقيقي. تساعده على تجاوز العقبات بنظرة متفائلة.`,
+  };
+
+  return personalities[personality] || personalities.professional;
+}
+
+const SYSTEM_PROMPT = buildSystemPrompt();
 
 export async function registerRoutes(
   httpServer: Server,
@@ -219,9 +244,13 @@ export async function registerRoutes(
       }
 
       // Build message history with system prompt
-      const systemPrompt = `أنت أبو اليزيد، مساعد ذكاء اصطناعي عربي شخصي طورته شركة ArabiX AI.
-تتحدث بطريقة طبيعية ومناسبة للمحادثة الصوتية — إجابات موجزة وواضحة.
-إذا سألك المستخدم بالعربي أجبه بالعربي، وإذا سألك بالإنجليزي أجبه بالإنجليزي.`;
+      // Get user preferences for personality-aware prompt
+      const prefs2 = await storage.getUserPreferences(userId).catch(() => null);
+      const systemPrompt = buildSystemPrompt(
+        (prefs2 as any)?.personality,
+        (prefs2 as any)?.userName,
+        true
+      );
 
       const chatHistory = [
         { role: "system" as const, content: systemPrompt },
@@ -291,16 +320,20 @@ export async function registerRoutes(
       }
     }
 
-    // Get user preferences for model selection
+    // Get user preferences for model/personality
     const userPrefs = await storage.getUserPreferences(userId);
     const model = userPrefs?.aiModel || "gpt-4o";
     const responseStyle = userPrefs?.responseStyle || "balanced";
+    const personality = (userPrefs as any)?.personality || "professional";
+    const userName = (userPrefs as any)?.userName;
 
     const styleInstruction = responseStyle === "concise" 
       ? " أجب بإيجاز شديد في جملة أو جملتين." 
       : responseStyle === "detailed" 
       ? " أجب بتفصيل وافٍ وشامل." 
       : "";
+
+    const dynamicSystemPrompt = buildSystemPrompt(personality, userName) + styleInstruction;
 
     // Save user message
     await storage.createMessage({
@@ -342,7 +375,7 @@ export async function registerRoutes(
       const stream = await ai.chat.completions.create({
         model,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + styleInstruction },
+          { role: "system", content: dynamicSystemPrompt },
           ...chatHistory
         ],
         stream: true,
