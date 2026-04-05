@@ -1,0 +1,98 @@
+Upgrade the current AI Assistant interface to have a layout and user experience similar to ChatGPT.
+
+IMPORTANT:
+- Do NOT remove or break any existing features.
+- Do NOT delete backend logic.
+- Only improve layout, spacing, and UI behavior.
+- Keep all current functionality working.
+
+====================================
+1) MAIN LAYOUT STRUCTURE
+====================================
+
+- Create a clean 2-column layout:
+   Left: Sidebar (chat history)
+   Right: Main chat area
+
+- Sidebar:
+   - Scrollable chat history list
+   - "New Chat" button at top
+   - Highlight active conversation
+   - Smooth hover effects
+
+- Main Chat Area:
+   - Messages centered with max-width (like ChatGPT)
+   - Clean message bubbles
+   - Proper spacing between messages
+   - Smooth fade-in animation for new messages
+
+====================================
+2) CHAT INPUT AREA (BOTTOM FIXED)
+====================================
+
+- Fixed bottom input bar.
+- Rounded container.
+- Inside it:
+   [Image Upload Icon] [Microphone Icon] [Text Input] [Send Button]
+
+- Add subtle shadow.
+- Add smooth focus animation.
+- Add typing indicator animation.
+
+====================================
+3) MESSAGE DESIGN
+====================================
+
+- User messages aligned right.
+- AI messages aligned left.
+- Subtle background difference.
+- Add small avatar circle for AI.
+- Smooth message appear animation.
+
+====================================
+4) ANIMATIONS
+====================================
+
+- Fade-in messages.
+- Smooth sidebar open/close transition.
+- Button hover animations.
+- Mic pulse animation when listening.
+- Smooth page transition from Home → Chat.
+
+====================================
+5) HOMEPAGE REDESIGN
+====================================
+
+- Centered assistant logo.
+- Welcome message with clean typography.
+- 3–4 suggestion cards below.
+- “Start Chat” button.
+- Clean minimal spacing.
+- Professional modern look.
+
+====================================
+6) RESPONSIVENESS
+====================================
+
+- On mobile:
+   - Sidebar collapses into menu.
+   - Input bar remains fixed.
+   - Proper spacing.
+   - No overlapping elements.
+
+====================================
+7) DARK / LIGHT MODE CONSISTENCY
+====================================
+
+- No flicker when loading.
+- Theme loads instantly.
+- Save theme per user account.
+- Use consistent color palette.
+
+====================================
+GOAL
+====================================
+
+Make the app feel like a premium AI SaaS product,
+similar in cleanliness and structure to ChatGPT,
+while keeping all existing features fully functional.
