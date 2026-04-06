@@ -1,0 +1,97 @@
+Create an ANDROID-ONLY native mobile application.
+
+IMPORTANT:
+- Android platform only.
+- Do NOT build for iOS.
+- Do NOT use WebView.
+- Build a real native app using React Native with Expo (Android target).
+- Keep existing backend APIs.
+- Do NOT delete or break any existing features.
+
+====================================
+ANDROID CONFIGURATION
+====================================
+
+- Set platform to Android only.
+- Generate Android APK and AAB.
+- Add proper app icon.
+- Add splash screen.
+- Configure adaptive Android icon.
+- Prepare for Google Play Store deployment.
+
+====================================
+SPLASH SCREEN
+====================================
+
+- Full screen.
+- AI-themed animated background.
+- App name centered: "Abu Al-Yazid AI".
+- Smooth fade-in animation.
+- Automatically navigate to main screen.
+- No white flash between screens.
+
+====================================
+MAIN CHAT SCREEN
+====================================
+
+Header layout:
+- Left: Hamburger menu.
+- Center: Chat name (current conversation title).
+- Right: Placeholder icon (future feature).
+- Proper spacing.
+- No overlapping elements.
+
+Chat layout:
+- Messages centered.
+- Smooth animations.
+- Streaming response effect.
+
+Bottom input bar:
+   [Image Icon] [Mic Icon] [Text Input] [Send Button]
+- Rounded container.
+- Smooth focus animation.
+- Proper Android keyboard handling.
+- No layout breaking when keyboard opens.
+
+====================================
+SIDEBAR FIXES
+====================================
+
+- Fix close (X) button alignment.
+- Do NOT overlap text with icons.
+- Proper padding.
+- Smooth slide animation.
+- Highlight active chat.
+- "New Chat" button clear and visible.
+
+====================================
+THEME SYSTEM
+====================================
+
+- Dark / Light mode.
+- Save theme per user.
+- Load theme instantly on app open.
+- No flicker.
+- Consistent Android styling.
+
+====================================
+ANDROID OPTIMIZATION
+====================================
+
+- Handle back button properly.
+- Use SafeArea.
+- Optimize performance.
+- Smooth 60fps animations.
+- Proper permission handling (Mic + Storage).
+- Error handling for network/API.
+
+====================================
+GOAL
+====================================
+
+Build a professional, premium-feeling Android AI assistant app,
+fully native,
+smooth,
+stable,
+ready for Play Store,
+with no UI bugs or layout issues.
