@@ -68,6 +68,16 @@ Pre-built integration modules for:
 - **Image**: Image generation via `gpt-image-1` model
 - **Batch**: Rate-limited batch processing utility with retries
 
+## Mobile App (Android)
+
+A complete React Native + Expo Android app is located in the `mobile/` directory.
+
+- **Entry point**: `mobile/App.tsx`
+- **Backend URL**: Configure in `mobile/src/api/client.ts` → `BASE_URL`
+- **Screens**: Splash, Login, Chat (with sidebar drawer), Voice mode, Settings
+- **Build**: `cd mobile && npm install && npx eas build --platform android --profile preview`
+- **Full docs**: See `mobile/README.md`
+
 ## External Dependencies
 
 - **PostgreSQL**: Primary database, must be provisioned with `DATABASE_URL` environment variable

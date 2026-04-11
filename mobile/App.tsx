@@ -1,36 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, BackHandler, Alert } from 'react-native';
+import { View, StyleSheet, BackHandler, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreenExpo from 'expo-splash-screen';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { Colors } from './src/constants/colors';
 
 import SplashScreen from './src/screens/SplashScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import VoiceScreen from './src/screens/VoiceScreen';
 
 SplashScreenExpo.preventAutoHideAsync();
 
-type Screen = 'splash' | 'login' | 'chat' | 'settings';
+type Screen = 'splash' | 'login' | 'chat' | 'settings' | 'voice';
 
 function AppNavigator() {
   const [screen, setScreen] = useState<Screen>('splash');
+  const [splashDone, setSplashDone] = useState(false);
   const { user, isLoading } = useAuth();
   const { colors } = useTheme();
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && splashDone) {
       SplashScreenExpo.hideAsync();
+      if (screen === 'splash') {
+        setScreen(user ? 'chat' : 'login');
+      }
     }
-  }, [isLoading]);
+  }, [isLoading, splashDone, user]);
 
   // Android back button handling
   useEffect(() => {
     const onBack = () => {
-      if (screen === 'settings') {
+      if (screen === 'settings' || screen === 'voice') {
         setScreen('chat');
         return true;
       }
@@ -49,14 +55,22 @@ function AppNavigator() {
 
   if (screen === 'splash') {
     return (
-      <SplashScreen onFinish={() => setScreen(user ? 'chat' : 'login')} />
+      <SplashScreen
+        onFinish={() => {
+          setSplashDone(true);
+          if (!isLoading) {
+            SplashScreenExpo.hideAsync();
+            setScreen(user ? 'chat' : 'login');
+          }
+        }}
+      />
     );
   }
 
   if (isLoading) {
     return (
       <View style={[styles.loading, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.primary, fontSize: 28, fontWeight: '800' }}>أ</Text>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
@@ -67,7 +81,16 @@ function AppNavigator() {
     return <SettingsScreen onBack={() => setScreen('chat')} />;
   }
 
-  return <ChatScreen onSettings={() => setScreen('settings')} />;
+  if (screen === 'voice') {
+    return <VoiceScreen onBack={() => setScreen('chat')} />;
+  }
+
+  return (
+    <ChatScreen
+      onSettings={() => setScreen('settings')}
+      onVoiceMode={() => setScreen('voice')}
+    />
+  );
 }
 
 export default function App() {

@@ -24,20 +24,8 @@
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.CAMERA"
-      ],
-      "edgeToEdgeLayoutEnabled": true
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#0f1a0f",
-          "image": "./assets/splash.png",
-          "imageWidth": 200
-        }
       ]
-    ],
+    },
     "extra": {
       "eas": {
         "projectId": "abu-al-yazid"

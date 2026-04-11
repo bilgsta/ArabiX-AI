@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   KeyboardAvoidingView, Platform, SafeAreaView, Alert,
-  Modal, DrawerLayoutAndroid, StatusBar, ActivityIndicator
+  DrawerLayoutAndroid, StatusBar, ActivityIndicator
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,7 +30,7 @@ interface Conversation {
   isLocked: boolean;
 }
 
-export default function ChatScreen({ onSettings }: { onSettings: () => void }) {
+export default function ChatScreen({ onSettings, onVoiceMode }: { onSettings: () => void; onVoiceMode: () => void }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const drawerRef = useRef<DrawerLayoutAndroid>(null);
@@ -228,8 +228,8 @@ export default function ChatScreen({ onSettings }: { onSettings: () => void }) {
             {activeConv?.title || 'أبو اليزيد'}
           </Text>
 
-          <TouchableOpacity style={styles.headerBtn}>
-            <Feather name="more-vertical" size={22} color={colors.textMuted} />
+          <TouchableOpacity style={styles.headerBtn} onPress={onVoiceMode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Feather name="mic" size={22} color={Colors.primary} />
           </TouchableOpacity>
         </View>
 
