@@ -101,6 +101,7 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
 // --- Types ---
+export type User = typeof users.$inferSelect;
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;

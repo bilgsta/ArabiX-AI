@@ -2,7 +2,8 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, MessageSquare, Settings, LogOut, Lock, Trash2, Search, X, PanelRightOpen, MoreVertical, Unlock, Mic } from "lucide-react";
+import { Plus, MessageSquare, Settings, LogOut, Lock, Trash2, Search, X, PanelRightOpen, MoreVertical, Unlock, Mic, Shield } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useConversations, useCreateConversation, useDeleteConversation, useLockConversation, useUnlockConversation } from "@/hooks/use-conversations";
 import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,6 +20,7 @@ function SidebarInner({ onClose }: { onClose?: () => void }) {
   const lockConversation = useLockConversation();
   const unlockConversation = useUnlockConversation();
   const { user, logout } = useAuth();
+  const { data: adminCheck } = useQuery<{ isAdmin: boolean }>({ queryKey: ["/api/admin/me"] });
   const [search, setSearch] = useState("");
   const [lockDialogId, setLockDialogId] = useState<number | null>(null);
   const [lockMode, setLockMode] = useState<"lock" | "unlock">("lock");
@@ -200,6 +202,20 @@ function SidebarInner({ onClose }: { onClose?: () => void }) {
               <span>خروج</span>
             </Button>
           </div>
+          {adminCheck?.isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1 text-xs mt-2 text-amber-600 hover:text-amber-600 hover:bg-amber-500/10 border-amber-500/30"
+              asChild
+              data-testid="link-admin"
+            >
+              <Link href="/admin">
+                <Shield className="w-3.5 h-3.5" />
+                <span>لوحة الأدمن - رسائل المستخدمين</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </>

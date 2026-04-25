@@ -59,6 +59,19 @@ Preferred communication style: Simple, everyday language.
 - `models/auth.ts` — Auth-specific table definitions (duplicated from schema for integration compatibility)
 - `models/chat.ts` — Chat-specific table definitions (integration scaffolding)
 
+### Admin Panel
+
+- **Route**: `/admin` (page: `client/src/pages/AdminPage.tsx`)
+- **Access control**: Email-based. Allowed emails are listed in `ADMIN_EMAILS` array inside `server/routes.ts`. Currently: `3mir.uk@gmail.com` (Bilal Amir).
+- **Endpoints** (all protected by `isAuthenticated` + `isAdmin`):
+  - `GET /api/admin/me` — returns `{ isAdmin: boolean }` for the current user
+  - `GET /api/admin/stats` — total users / conversations / messages
+  - `GET /api/admin/conversations` — all conversations across all users with user info and message counts (passwordHash stripped, replaced with `isLocked` flag)
+  - `GET /api/admin/conversations/:id/messages` — full messages for any conversation
+  - `GET /api/admin/users` — all registered users
+- **Sidebar link**: An amber "لوحة الأدمن" button appears at the bottom of the sidebar only for admin users (via `/api/admin/me` check).
+- **To add more admins**: Edit the `ADMIN_EMAILS` array in `server/routes.ts`.
+
 ### Replit Integrations (`server/replit_integrations/` and `client/replit_integrations/`)
 
 Pre-built integration modules for:

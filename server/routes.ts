@@ -412,5 +412,62 @@ export async function registerRoutes(
     }
   });
 
+  // ── Admin Routes ──
+  const ADMIN_EMAILS = ["3mir.uk@gmail.com"];
+
+  const isAdmin = async (req: any, res: any, next: any) => {
+    const email = req.user?.claims?.email;
+    if (!email || !ADMIN_EMAILS.includes(email)) {
+      return res.status(403).json({ error: "ممنوع - مخصص للأدمن فقط" });
+    }
+    next();
+  };
+
+  app.get("/api/admin/stats", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/admin/conversations", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const list = await storage.getAllConversationsWithUsers();
+      const safe = list.map(c => {
+        const { passwordHash, ...rest } = c as any;
+        return { ...rest, isLocked: !!passwordHash };
+      });
+      res.json(safe);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/admin/conversations/:id/messages", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const msgs = await storage.getMessages(id);
+      res.json(msgs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (_req, res) => {
+    try {
+      const list = await storage.getAllUsers();
+      res.json(list);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get("/api/admin/me", isAuthenticated, async (req: any, res) => {
+    const email = req.user?.claims?.email;
+    res.json({ isAdmin: ADMIN_EMAILS.includes(email) });
+  });
+
   return httpServer;
 }

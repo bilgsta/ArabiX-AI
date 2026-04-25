@@ -1,8 +1,8 @@
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import {
-  userPreferences, subscriptions, conversations, messages,
-  type UserPreferences, type Subscription, type Conversation, type Message,
+  userPreferences, subscriptions, conversations, messages, users,
+  type UserPreferences, type Subscription, type Conversation, type Message, type User,
   type InsertUserPreferences, type InsertConversation, type InsertMessage
 } from "@shared/schema";
 
@@ -22,6 +22,11 @@ export interface IStorage {
 
   getMessages(conversationId: number): Promise<Message[]>;
   createMessage(message: InsertMessage): Promise<Message>;
+
+  // Admin methods
+  getAllConversationsWithUsers(): Promise<Array<Conversation & { user: User | null; messageCount: number }>>;
+  getAdminStats(): Promise<{ totalUsers: number; totalConversations: number; totalMessages: number }>;
+  getAllUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -110,6 +115,32 @@ export class DatabaseStorage implements IStorage {
   async createMessage(message: InsertMessage): Promise<Message> {
     const [msg] = await db.insert(messages).values(message).returning();
     return msg;
+  }
+
+  // ── Admin methods ──
+  async getAllConversationsWithUsers(): Promise<Array<Conversation & { user: User | null; messageCount: number }>> {
+    const rows = await db
+      .select({
+        conv: conversations,
+        user: users,
+        messageCount: sql<number>`COALESCE((SELECT COUNT(*) FROM ${messages} WHERE ${messages.conversationId} = ${conversations.id}), 0)::int`,
+      })
+      .from(conversations)
+      .leftJoin(users, eq(users.id, conversations.userId))
+      .orderBy(desc(conversations.updatedAt));
+
+    return rows.map(r => ({ ...r.conv, user: r.user, messageCount: r.messageCount }));
+  }
+
+  async getAdminStats(): Promise<{ totalUsers: number; totalConversations: number; totalMessages: number }> {
+    const [u] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(users);
+    const [c] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(conversations);
+    const [m] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(messages);
+    return { totalUsers: u.count, totalConversations: c.count, totalMessages: m.count };
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return db.select().from(users).orderBy(desc(users.createdAt));
   }
 }
 
