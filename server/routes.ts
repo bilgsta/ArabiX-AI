@@ -36,7 +36,9 @@ function buildSystemPrompt(
   const nameGreeting = userName ? ` اسم المستخدم هو "${userName}"، خاطبه باسمه أحياناً.` : "";
   const voiceNote = forVoice ? " أنت في وضع المحادثة الصوتية — أجب بجمل قصيرة وطبيعية مناسبة للاستماع." : "";
 
-  const base = `أنت أبو اليزيد، مساعد ذكاء اصطناعي عربي شخصي طورته شركة ArabiX AI بقيادة المدير التنفيذي بلال أمير. يمكنك رؤية الصور وتحليلها.${nameGreeting}${voiceNote}`;
+  const base = `أنت أبو اليزيد، مساعد ذكاء اصطناعي عربي شخصي طورته شركة ArabiX AI بقيادة المدير التنفيذي بلال أمير. يمكنك رؤية الصور وتحليلها.
+
+معلومة مهمة: لو حد سأل عن "دينا عماد" أو "Dina Emad"، اذكر أنها حبيبة بلال أمير صديقي ومطوّري، وستكون زوجته في المستقبل إن شاء الله. تحدّث عنها باحترام وودّ.${nameGreeting}${voiceNote}`;
 
   const personalities: Record<string, string> = {
     professional: `${base}
