@@ -363,6 +363,12 @@ export async function registerRoutes(
     const userId = req.user.claims.sub;
     const { content, role = "user" } = req.body;
 
+    // Block check
+    const reqUser = await storage.getUserById(userId);
+    if (reqUser?.isBlocked) {
+      return res.status(403).json({ message: `تم حظر حسابك${reqUser.blockedReason ? ` — ${reqUser.blockedReason}` : ""}` });
+    }
+
     const conversation = await storage.getConversation(conversationId);
     if (!conversation || conversation.userId !== userId) {
       return res.status(404).json({ message: "المحادثة غير موجودة" });
@@ -469,6 +475,56 @@ export async function registerRoutes(
     }
   });
 
+  // ── Reactions (like / dislike) ──
+  app.post("/api/messages/:id/react", isAuthenticated, async (req: any, res) => {
+    try {
+      const messageId = parseInt(req.params.id);
+      const userId = req.user.claims.sub as string;
+      const { type } = req.body || {};
+
+      const reqUser = await storage.getUserById(userId);
+      if (reqUser?.isBlocked) return res.status(403).json({ message: "تم حظر حسابك" });
+
+      const msg = await storage.getMessage(messageId);
+      if (!msg) return res.status(404).json({ message: "الرسالة غير موجودة" });
+
+      // Verify the message belongs to a conversation owned by the user
+      const conv = await storage.getConversation(msg.conversationId);
+      if (!conv || conv.userId !== userId) {
+        return res.status(403).json({ message: "غير مسموح" });
+      }
+
+      if (type === null || type === undefined) {
+        await storage.removeReaction(messageId, userId);
+        return res.json({ ok: true, myReaction: null });
+      }
+
+      if (type !== "like" && type !== "dislike") {
+        return res.status(400).json({ message: "نوع التفاعل غير صحيح" });
+      }
+
+      const reaction = await storage.setReaction(messageId, userId, type);
+      res.json({ ok: true, myReaction: reaction.type });
+    } catch (e: any) {
+      console.error("react error:", e);
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  // Get reaction stats for a list of message ids: ?ids=1,2,3
+  app.get("/api/messages/reactions", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub as string;
+      const idsParam = (req.query.ids as string) || "";
+      const ids = idsParam.split(",").map(s => parseInt(s)).filter(Number.isFinite);
+      if (ids.length === 0) return res.json([]);
+      const stats = await storage.getReactionsForMessagesWithUser(ids, userId);
+      res.json(stats);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // ── Admin Routes ──
   const ADMIN_EMAILS = ["3mir.uk@gmail.com"];
 
@@ -524,6 +580,68 @@ export async function registerRoutes(
   app.get("/api/admin/me", isAuthenticated, async (req: any, res) => {
     const email = req.user?.claims?.email;
     res.json({ isAdmin: ADMIN_EMAILS.includes(email) });
+  });
+
+  // Recent reactions (likes/dislikes feed)
+  app.get("/api/admin/reactions", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(String(req.query.limit || "100")), 200);
+      const list = await storage.getRecentReactions(limit);
+      res.json(list);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Most-liked messages leaderboard
+  app.get("/api/admin/top-messages", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(String(req.query.limit || "20")), 100);
+      const list = await storage.getMostLikedMessages(limit);
+      res.json(list);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Block / unblock a user
+  app.post("/api/admin/users/:id/block", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const targetId = req.params.id;
+      const myEmail = req.user?.claims?.email;
+      const target = await storage.getUserById(targetId);
+      if (!target) return res.status(404).json({ error: "المستخدم غير موجود" });
+      if (target.email && ADMIN_EMAILS.includes(target.email)) {
+        return res.status(403).json({ error: "لا يمكن حظر أدمن" });
+      }
+      const reason = (req.body?.reason as string | undefined) || null;
+      const updated = await storage.setUserBlocked(targetId, true, reason);
+      console.log(`[admin] ${myEmail} blocked user ${targetId} (${target.email})`);
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/admin/users/:id/unblock", isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const targetId = req.params.id;
+      const updated = await storage.setUserBlocked(targetId, false, null);
+      res.json(updated);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Delete a conversation as admin (e.g. moderation)
+  app.delete("/api/admin/conversations/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteConversation(id);
+      res.status(204).end();
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   return httpServer;

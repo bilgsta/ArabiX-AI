@@ -5,7 +5,7 @@ import { useRoute } from "wouter";
 import { ChatBubble } from "@/components/ChatBubble";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2, StopCircle, ImagePlus, X, Sparkles } from "lucide-react";
+import { Send, Loader2, StopCircle, ImagePlus, X, Sparkles, Wand2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { EncryptionBadge } from "@/components/EncryptionBadge";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +14,11 @@ import { PasswordDialog } from "@/components/PasswordDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import logoImg from "@assets/generated_images/abu_alyazid_logo.png";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const SUGGESTIONS = [
   { text: "ساعدني في كتابة رسالة احترافية", emoji: "✍️" },
@@ -22,10 +27,18 @@ const SUGGESTIONS = [
   { text: "اكتب كوداً وشرح طريقة عمله", emoji: "💻" },
 ];
 
+interface ReactionStat {
+  messageId: number;
+  likes: number;
+  dislikes: number;
+  myReaction: string | null;
+}
+
 export default function ChatPage() {
   const [match, params] = useRoute("/c/:id");
   const id = match && params.id !== "new" ? parseInt(params.id) : null;
   const { toast } = useToast();
+  const qc = useQueryClient();
 
   const { user, isLoading: isAuthLoading } = useAuth();
   const [chatPin, setChatPin] = useState<string | undefined>(() => {
@@ -41,6 +54,16 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<{ url: string; name: string; type: 'image' }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingUserMessage, setPendingUserMessage] = useState<{
+    content: string;
+    attachments?: { url: string; name: string; type: 'image' }[];
+  } | null>(null);
+
+  // Image generation
+  const [imgGenOpen, setImgGenOpen] = useState(false);
+  const [imgPrompt, setImgPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -55,7 +78,7 @@ export default function ChatPage() {
   // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [data?.messages, streamedContent]);
+  }, [data?.messages, streamedContent, pendingUserMessage]);
 
   // Show password dialog if conversation is locked
   useEffect(() => {
@@ -74,6 +97,57 @@ export default function ChatPage() {
       ta.style.height = Math.min(ta.scrollHeight, 200) + "px";
     }
   }, [input]);
+
+  // Clear pending user message once it shows up in fetched messages OR streaming finished
+  useEffect(() => {
+    if (!pendingUserMessage) return;
+    if (!isStreaming) {
+      setPendingUserMessage(null);
+    }
+  }, [isStreaming, data?.messages, pendingUserMessage]);
+
+  // ── Reactions ──
+  const messageIds = (data?.messages?.map(m => m.id) || []).join(",");
+  const { data: reactionStats } = useQuery<ReactionStat[]>({
+    queryKey: ["/api/messages/reactions", messageIds],
+    enabled: !!messageIds && !isStreaming,
+    queryFn: async () => {
+      if (!messageIds) return [];
+      const res = await fetch(`/api/messages/reactions?ids=${messageIds}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5000,
+  });
+
+  const reactionMap = new Map<number, ReactionStat>();
+  reactionStats?.forEach(r => reactionMap.set(r.messageId, r));
+
+  const reactMutation = useMutation({
+    mutationFn: async ({ messageId, type }: { messageId: number; type: 'like' | 'dislike' | null }) => {
+      const res = await fetch(`/api/messages/${messageId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("فشل التفاعل");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/messages/reactions"] });
+    },
+    onError: (e: any) => {
+      toast({ title: "خطأ", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const handleReact = (messageId: number, type: 'like' | 'dislike') => {
+    const current = reactionMap.get(messageId)?.myReaction;
+    // Toggle: clicking same reaction removes it
+    const newType = current === type ? null : type;
+    reactMutation.mutate({ messageId, type: newType });
+  };
 
   const handlePinSubmit = async (pin: string) => {
     setPinError("");
@@ -133,13 +207,15 @@ export default function ChatPage() {
 
   const handleSend = async () => {
     if (!input.trim() && attachments.length === 0) return;
+    const messageContent = input;
+    const messageAttachments = [...attachments];
     let currentId = id;
     if (!currentId) {
       try {
         const res = await fetch("/api/conversations", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: input.slice(0, 40) + (input.length > 40 ? "..." : "") }),
+          body: JSON.stringify({ title: messageContent.slice(0, 40) + (messageContent.length > 40 ? "..." : "") }),
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to create conversation");
@@ -151,9 +227,62 @@ export default function ChatPage() {
         return;
       }
     }
-    sendMessage.mutate({ content: input, attachments: attachments.length > 0 ? attachments : undefined });
+    // Show optimistic user message immediately
+    setPendingUserMessage({
+      content: messageContent,
+      attachments: messageAttachments.length > 0 ? messageAttachments : undefined,
+    });
+    sendMessage.mutate({
+      content: messageContent,
+      attachments: messageAttachments.length > 0 ? messageAttachments : undefined,
+    });
     setInput("");
     setAttachments([]);
+  };
+
+  const handleGenerateImage = async () => {
+    if (!imgPrompt.trim()) {
+      toast({ title: "فاضي", description: "اكتب وصف الصورة", variant: "destructive" });
+      return;
+    }
+    setIsGenerating(true);
+    let currentId = id;
+    try {
+      // Create conversation if needed
+      if (!currentId) {
+        const cRes = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: imgPrompt.slice(0, 40) }),
+          credentials: "include",
+        });
+        if (!cRes.ok) throw new Error("Failed to create conversation");
+        const newConv = await cRes.json();
+        currentId = newConv.id;
+        window.history.pushState({}, "", `/c/${currentId}`);
+      }
+
+      const res = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: imgPrompt, conversationId: currentId }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "فشل توليد الصورة");
+      }
+      toast({ title: "تم ✓", description: "تم توليد الصورة بنجاح" });
+      setImgPrompt("");
+      setImgGenOpen(false);
+      // Refresh conversation messages
+      qc.invalidateQueries({ queryKey: ["/api/conversations/:id", currentId] });
+      qc.invalidateQueries({ queryKey: ["/api/conversations"] });
+    } catch (e: any) {
+      toast({ title: "فشل", description: e.message || "تعذر توليد الصورة", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -185,8 +314,6 @@ export default function ChatPage() {
     );
   }
 
-  const hasMessages = !!data?.messages?.length;
-
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar />
@@ -198,6 +325,64 @@ export default function ChatPage() {
         error={pinError}
         isLoading={isChatLoading}
       />
+
+      {/* Image generation dialog */}
+      <Dialog open={imgGenOpen} onOpenChange={setImgGenOpen}>
+        <DialogContent dir="rtl" className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-primary" />
+              توليد صورة بالذكاء الاصطناعي
+            </DialogTitle>
+            <DialogDescription>
+              اكتب وصفًا تفصيليًا للصورة اللي عايز تولّدها.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Textarea
+              value={imgPrompt}
+              onChange={(e) => setImgPrompt(e.target.value)}
+              placeholder="مثال: قطة ترتدي زي رائد فضاء على سطح القمر، ألوان زاهية، جودة سينمائية"
+              className="min-h-[120px] resize-none"
+              data-testid="input-img-prompt"
+              disabled={isGenerating}
+            />
+            <div className="flex flex-wrap gap-2">
+              {[
+                "منظر طبيعي خلاب وقت غروب الشمس",
+                "روبوت عربي بأسلوب أنمي",
+                "قهوة عربية مع تمر، تصوير احترافي",
+              ].map(s => (
+                <button
+                  key={s}
+                  onClick={() => setImgPrompt(s)}
+                  className="text-[11px] px-2.5 py-1 rounded-full border border-border hover:bg-muted transition"
+                  disabled={isGenerating}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setImgGenOpen(false)} disabled={isGenerating}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleGenerateImage}
+              disabled={isGenerating || !imgPrompt.trim()}
+              className="gap-2"
+              data-testid="button-generate-image"
+            >
+              {isGenerating ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> جارِ التوليد...</>
+              ) : (
+                <><Sparkles className="w-4 h-4" /> توليد</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Main */}
       <main className="flex-1 flex flex-col md:mr-80 h-full relative min-w-0">
@@ -260,6 +445,15 @@ export default function ChatPage() {
                     </motion.button>
                   ))}
                 </div>
+
+                <button
+                  onClick={() => setImgGenOpen(true)}
+                  className="mx-auto inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium transition"
+                  data-testid="button-open-img-gen-welcome"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  ولّد صورة بالذكاء الاصطناعي
+                </button>
               </div>
             </motion.div>
           )}
@@ -281,8 +475,19 @@ export default function ChatPage() {
                       content={msg.content}
                       createdAt={msg.createdAt}
                       attachments={msg.attachments ?? undefined}
+                      messageId={msg.id}
+                      reactionStats={reactionMap.get(msg.id)}
+                      onReact={msg.role === "assistant" ? (type) => handleReact(msg.id, type) : undefined}
                     />
                   ))}
+                  {/* Optimistic user message during streaming */}
+                  {pendingUserMessage && isStreaming && (
+                    <ChatBubble
+                      role="user"
+                      content={pendingUserMessage.content}
+                      attachments={pendingUserMessage.attachments}
+                    />
+                  )}
                   {isStreaming && (
                     <ChatBubble
                       role="assistant"
@@ -307,18 +512,32 @@ export default function ChatPage() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="flex flex-wrap gap-2"
+                  className="flex flex-wrap gap-2 px-1"
                 >
                   {attachments.map((file, i) => (
-                    <div key={i} className="relative group">
-                      <img src={file.url} alt={file.name} className="w-16 h-16 object-cover rounded-xl border border-border/40 shadow-sm" />
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="relative group rounded-xl overflow-hidden border-2 border-primary/30 shadow-md"
+                    >
+                      <img
+                        src={file.url}
+                        alt={file.name}
+                        className="w-24 h-24 object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-1.5 opacity-0 group-hover:opacity-100 transition">
+                        <span className="text-[9px] text-white truncate w-full">{file.name}</span>
+                      </div>
                       <button
                         onClick={() => setAttachments(prev => prev.filter((_, idx) => idx !== i))}
-                        className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:scale-110 transition"
+                        title="إزالة"
+                        data-testid={`button-remove-attachment-${i}`}
                       >
                         <X className="w-3 h-3" />
                       </button>
-                    </div>
+                    </motion.div>
                   ))}
                 </motion.div>
               )}
@@ -336,12 +555,25 @@ export default function ChatPage() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading || isStreaming}
                   title="رفع صورة"
+                  data-testid="button-upload-image"
                   className={cn(
                     "h-9 w-9 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all",
                     isUploading && "text-primary"
                   )}
                 >
                   {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                </Button>
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setImgGenOpen(true)}
+                  disabled={isStreaming || isGenerating}
+                  title="توليد صورة بالذكاء الاصطناعي"
+                  data-testid="button-open-img-gen"
+                  className="h-9 w-9 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all"
+                >
+                  <Wand2 className="w-4 h-4" />
                 </Button>
               </div>
 
@@ -354,6 +586,7 @@ export default function ChatPage() {
                 placeholder="اكتب رسالتك هنا... (Enter للإرسال، Shift+Enter لسطر جديد)"
                 className="flex-1 min-h-[44px] max-h-[200px] border-none shadow-none resize-none bg-transparent py-2.5 px-2 focus-visible:ring-0 text-sm leading-relaxed"
                 rows={1}
+                data-testid="input-message"
               />
 
               {/* Send / Stop */}
@@ -364,6 +597,7 @@ export default function ChatPage() {
                     variant="outline"
                     onClick={stopGeneration}
                     title="إيقاف"
+                    data-testid="button-stop"
                     className="h-9 w-9 rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10"
                   >
                     <StopCircle className="w-4 h-4" />
@@ -373,6 +607,7 @@ export default function ChatPage() {
                     size="icon"
                     onClick={handleSend}
                     disabled={(!input.trim() && attachments.length === 0) || isUploading}
+                    data-testid="button-send"
                     className={cn(
                       "h-9 w-9 rounded-xl transition-all",
                       input.trim() || attachments.length > 0

@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
   - `subscriptions` — user subscription plans (free/premium)
   - `conversations` — chat conversations with userId, title, model, encryption flag
   - `messages` — chat messages with role, content, conversationId
+  - `message_reactions` — like/dislike per (messageId, userId), unique index on the pair
 
 ### Shared Code (`shared/`)
 
@@ -70,14 +71,39 @@ Preferred communication style: Simple, everyday language.
 
 - **Route**: `/admin` (page: `client/src/pages/AdminPage.tsx`)
 - **Access control**: Email-based. Allowed emails are listed in `ADMIN_EMAILS` array inside `server/routes.ts`. Currently: `3mir.uk@gmail.com` (Bilal Amir).
+- **Tabs**: Conversations · Users · Reactions · Top messages.
 - **Endpoints** (all protected by `isAuthenticated` + `isAdmin`):
   - `GET /api/admin/me` — returns `{ isAdmin: boolean }` for the current user
-  - `GET /api/admin/stats` — total users / conversations / messages
+  - `GET /api/admin/stats` — totals (users / conversations / messages / likes / dislikes)
   - `GET /api/admin/conversations` — all conversations across all users with user info and message counts (passwordHash stripped, replaced with `isLocked` flag)
   - `GET /api/admin/conversations/:id/messages` — full messages for any conversation
-  - `GET /api/admin/users` — all registered users
+  - `DELETE /api/admin/conversations/:id` — delete a conversation (moderation)
+  - `GET /api/admin/users` — all registered users (with conversation/message counts and `isBlocked`/`blockedReason`)
+  - `POST /api/admin/users/:id/block` — body: `{ reason?: string }`. Cannot block another admin.
+  - `POST /api/admin/users/:id/unblock`
+  - `GET /api/admin/reactions?limit=` — recent reactions feed with user + message context (auto-refresh in UI)
+  - `GET /api/admin/top-messages?limit=` — leaderboard of most-liked AI replies
 - **Sidebar link**: An amber "لوحة الأدمن" button appears at the bottom of the sidebar only for admin users (via `/api/admin/me` check).
 - **To add more admins**: Edit the `ADMIN_EMAILS` array in `server/routes.ts`.
+
+### Message Reactions (Like / Dislike / Share)
+
+- AI replies show always-visible action row (ChatGPT-style): TTS, Copy, Like, Dislike, Share, Regenerate.
+- `POST /api/messages/:id/react` body `{ type: "like" | "dislike" | null }` — `null` removes the reaction. Clicking the same button again toggles it off.
+- `GET /api/messages/reactions?ids=1,2,3` — returns aggregated `{ likes, dislikes, myReaction }` per message for the current user.
+- Only the conversation owner can react to messages in it.
+- Share button uses native `navigator.share` when available, otherwise copies to clipboard.
+
+### AI Image Generation
+
+- **Route**: `POST /api/generate-image` body `{ prompt, conversationId?, size? }`. Uses OpenAI `gpt-image-1`, persists PNG to `client/public/uploads/gen-*.png`, and (when `conversationId` is provided) appends a user message with the prompt and an assistant message with the generated image as an attachment.
+- **UI**: Wand2 (✨) button in the chat input row and on the welcome screen opens a dialog with prompt textarea + quick suggestions.
+- Blocked users cannot generate images.
+
+### User Blocking
+
+- Users have `isBlocked` boolean + optional `blockedReason` text on the `users` table.
+- Block enforcement runs on: sending messages, posting reactions, generating images. Returns 403 with the Arabic reason when set.
 
 ### Replit Integrations (`server/replit_integrations/` and `client/replit_integrations/`)
 

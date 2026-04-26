@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -21,6 +21,8 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  isBlocked: boolean("is_blocked").default(false).notNull(),
+  blockedReason: text("blocked_reason"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -82,15 +84,35 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// --- Message Reactions (Like / Dislike) ---
+export const messageReactions = pgTable("message_reactions", {
+  id: serial("id").primaryKey(),
+  messageId: integer("message_id").notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull(),
+  type: text("type").notNull(), // 'like' | 'dislike'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("uniq_reaction_per_user_message").on(table.messageId, table.userId),
+  index("idx_reaction_message").on(table.messageId),
+]);
+
 // --- Relations ---
 export const conversationsRelations = relations(conversations, ({ many }) => ({
   messages: many(messages),
 }));
 
-export const messagesRelations = relations(messages, ({ one }) => ({
+export const messagesRelations = relations(messages, ({ one, many }) => ({
   conversation: one(conversations, {
     fields: [messages.conversationId],
     references: [conversations.id],
+  }),
+  reactions: many(messageReactions),
+}));
+
+export const messageReactionsRelations = relations(messageReactions, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageReactions.messageId],
+    references: [messages.id],
   }),
 }));
 
@@ -99,6 +121,7 @@ export const insertUserPreferencesSchema = createInsertSchema(userPreferences).o
 export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({ id: true, startDate: true });
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true, updatedAt: true, passwordHash: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
+export const insertMessageReactionSchema = createInsertSchema(messageReactions).omit({ id: true, createdAt: true });
 
 // --- Types ---
 export type User = typeof users.$inferSelect;
@@ -106,10 +129,12 @@ export type UserPreferences = typeof userPreferences.$inferSelect;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type MessageReaction = typeof messageReactions.$inferSelect;
 
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type InsertMessageReaction = z.infer<typeof insertMessageReactionSchema>;
 
 // Conversation with computed isLocked field (no passwordHash exposed)
 export type ConversationPublic = Omit<Conversation, 'passwordHash'> & { isLocked: boolean };
