@@ -8,17 +8,53 @@ import { z } from "zod";
 import OpenAI from "openai";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import crypto from "crypto";
+
+// Ensure uploads directory exists
+const UPLOADS_DIR = path.resolve("client/public/uploads");
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: "client/public/uploads",
+    destination: UPLOADS_DIR,
     filename: (req, file, cb) => {
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
     },
   }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("نوع الملف غير مدعوم — ارفع صورة فقط"));
+    }
+    cb(null, true);
+  },
 });
+
+// Convert a stored upload (or external URL) to a base64 data URL the AI can read
+function toDataUrl(attUrl: string): string | null {
+  try {
+    if (attUrl.startsWith("data:")) return attUrl;
+    if (attUrl.startsWith("http")) return attUrl;
+    // Local upload — read from disk and inline as base64
+    const filename = path.basename(attUrl);
+    const filePath = path.join(UPLOADS_DIR, filename);
+    if (!fs.existsSync(filePath)) return null;
+    const ext = path.extname(filename).toLowerCase().replace(".", "");
+    const mimeMap: Record<string, string> = {
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+      webp: "image/webp", gif: "image/gif", jfif: "image/jpeg",
+    };
+    const mime = mimeMap[ext] || "image/jpeg";
+    const b64 = fs.readFileSync(filePath).toString("base64");
+    return `data:${mime};base64,${b64}`;
+  } catch {
+    return null;
+  }
+}
 
 const ai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -219,10 +255,28 @@ export async function registerRoutes(
   });
 
   // Image Upload
-  app.post("/api/upload", isAuthenticated, upload.single("file"), (req: any, res) => {
-    if (!req.file) return res.status(400).json({ message: "لم يتم رفع أي ملف" });
-    res.json({ url: `/uploads/${req.file.filename}`, name: req.file.originalname });
-  });
+  app.post(
+    "/api/upload",
+    isAuthenticated,
+    (req, res, next) => {
+      upload.single("file")(req, res, (err: any) => {
+        if (err) {
+          const msg = err?.message || "فشل رفع الملف";
+          return res.status(400).json({ message: msg });
+        }
+        next();
+      });
+    },
+    (req: any, res) => {
+      if (!req.file) return res.status(400).json({ message: "لم يتم رفع أي ملف" });
+      res.json({
+        url: `/uploads/${req.file.filename}`,
+        name: req.file.originalname,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+    }
+  );
 
   // Voice chat — simple rate limiting per user (20 requests/minute)
   const voiceRateMap = new Map<string, { count: number; resetAt: number }>();
@@ -357,15 +411,16 @@ export async function registerRoutes(
         const attachments = m.attachments as any[];
         
         if (msgRole === "user" && attachments && attachments.length > 0) {
-          const msgContent: any[] = [{ type: "text", text: m.content }];
+          const msgContent: any[] = [{ type: "text", text: m.content || "حلّل هذه الصورة من فضلك." }];
           attachments.forEach(att => {
             if (att.type === 'image') {
-              msgContent.push({
-                type: "image_url",
-                image_url: {
-                  url: att.url.startsWith('http') ? att.url : `http://${req.get('host')}${att.url}`
-                }
-              });
+              const dataUrl = toDataUrl(att.url);
+              if (dataUrl) {
+                msgContent.push({
+                  type: "image_url",
+                  image_url: { url: dataUrl, detail: "auto" },
+                });
+              }
             }
           });
           return { role: msgRole, content: msgContent };

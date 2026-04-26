@@ -96,15 +96,35 @@ export default function ChatPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "نوع غير مدعوم", description: "ارفع صورة فقط (JPG, PNG, WebP, GIF)", variant: "destructive" });
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "حجم كبير", description: "أقصى حجم للصورة 10 ميجا", variant: "destructive" });
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Upload failed");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errMsg = res.status === 401 ? "سجّل الدخول أولاً" : "حدث خطأ أثناء رفع الصورة";
+        throw new Error(errMsg);
+      }
       const uploadData = await res.json();
       setAttachments(prev => [...prev, { ...uploadData, type: 'image' as const }]);
-    } catch {
-      toast({ title: "فشل الرفع", description: "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
+      toast({ title: "تم رفع الصورة ✓", description: "اكتب سؤالك عنها واضغط إرسال" });
+    } catch (err: any) {
+      toast({ title: "فشل الرفع", description: err?.message || "حدث خطأ أثناء رفع الصورة", variant: "destructive" });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
