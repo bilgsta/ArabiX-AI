@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PasswordDialog } from "@/components/PasswordDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import logoImg from "@assets/generated_images/abu_alyazid_logo.png";
 
 const SUGGESTIONS = [
   { text: "ساعدني في كتابة رسالة احترافية", emoji: "✍️" },
@@ -208,9 +209,7 @@ export default function ChatPage() {
               <div className="w-full max-w-2xl mx-auto text-center space-y-6">
                 {/* Logo */}
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shadow-md">
-                    <span className="text-3xl">🤖</span>
-                  </div>
+                  <img src={logoImg} alt="أبو اليزيد" className="w-20 h-20 rounded-2xl shadow-lg ring-2 ring-primary/20 object-cover" />
                   <div>
                     <h2 className="text-2xl font-bold text-foreground">
                       أهلاً {user?.firstName} 👋

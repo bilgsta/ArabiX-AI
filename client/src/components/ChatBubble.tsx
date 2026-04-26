@@ -8,6 +8,7 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
+import logoImg from "@assets/generated_images/abu_alyazid_logo.png";
 
 interface ChatBubbleProps {
   role: "user" | "assistant";
@@ -115,9 +116,12 @@ export function ChatBubble({ role, content, createdAt, isStreaming, attachments 
       className="flex gap-3 py-3 group"
     >
       {/* Bot avatar */}
-      <div className="w-8 h-8 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center text-base shrink-0 mt-0.5 shadow-sm">
-        🤖
-      </div>
+      <img
+        src={logoImg}
+        alt="أبو اليزيد"
+        className="w-8 h-8 rounded-full object-cover shrink-0 mt-0.5 shadow-sm ring-1 ring-primary/20"
+      />
+
 
       {/* Content */}
       <div className="flex-1 min-w-0">

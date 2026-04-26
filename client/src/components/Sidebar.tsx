@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, MessageSquare, Settings, LogOut, Lock, Trash2, Search, X, PanelRightOpen, MoreVertical, Unlock, Mic, Shield } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import logoImg from "@assets/generated_images/abu_alyazid_logo.png";
 import { useConversations, useCreateConversation, useDeleteConversation, useLockConversation, useUnlockConversation } from "@/hooks/use-conversations";
 import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -69,8 +70,12 @@ function SidebarInner({ onClose }: { onClose?: () => void }) {
       <div className="flex flex-col h-full bg-secondary/30 border-l border-border/60">
         {/* Header */}
         <div className="p-4 border-b border-border/40 space-y-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg font-bold text-primary tracking-wide flex-1">أبو اليزيد</span>
+          <div className="flex items-center gap-2.5 mb-1">
+            <img src={logoImg} alt="أبو اليزيد" className="w-9 h-9 rounded-xl shadow-sm ring-1 ring-primary/20 object-cover" />
+            <div className="flex-1">
+              <div className="text-lg font-bold text-primary tracking-wide leading-tight">أبو اليزيد</div>
+              <div className="text-[10px] text-muted-foreground">ArabiX AI</div>
+            </div>
           </div>
           <Button 
             onClick={handleNewChat}

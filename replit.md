@@ -59,6 +59,13 @@ Preferred communication style: Simple, everyday language.
 - `models/auth.ts` — Auth-specific table definitions (duplicated from schema for integration compatibility)
 - `models/chat.ts` — Chat-specific table definitions (integration scaffolding)
 
+### Branding / Logo
+
+- **Logo file**: `attached_assets/generated_images/abu_alyazid_logo.png` — cute Emirati boy character (kandura + ghutra) with futuristic AI accents on a green gradient background.
+- **Used in**: Sidebar header, Landing page nav, ChatPage welcome screen, ChatBubble (assistant avatar), favicon, PWA icons.
+- **Public copies**: `client/public/logo.png`, `client/public/favicon.png`, `client/public/icon-192.png`, `client/public/icon-512.png` — all currently the same image. To swap the logo, replace the file at `attached_assets/generated_images/abu_alyazid_logo.png` and copy it over the four files in `client/public/`.
+- **Import in components**: `import logoImg from "@assets/generated_images/abu_alyazid_logo.png";`
+
 ### Admin Panel
 
 - **Route**: `/admin` (page: `client/src/pages/AdminPage.tsx`)

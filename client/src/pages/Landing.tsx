@@ -4,6 +4,7 @@ import { ShieldCheck, Sparkles, MessageSquareText, Mic, ArrowLeft, Zap } from "l
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useEffect } from "react";
+import logoImg from "@assets/generated_images/abu_alyazid_logo.png";
 
 const FEATURES = [
   {
@@ -69,9 +70,7 @@ export default function Landing() {
       {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto w-full">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-primary/15 border border-primary/20 flex items-center justify-center text-lg">
-            🤖
-          </div>
+          <img src={logoImg} alt="أبو اليزيد" className="w-9 h-9 rounded-xl shadow-sm ring-1 ring-primary/20 object-cover" />
           <span className="font-bold text-foreground">أبو اليزيد</span>
         </div>
         <div className="flex items-center gap-2">
