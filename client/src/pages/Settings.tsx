@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Moon, Sun, Bell, Globe, Cpu, Sliders, Shield, Trash2, LogOut, Palette, Mic, Brain, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import { cn } from "@/lib/utils";
@@ -72,6 +72,7 @@ export default function Settings() {
   });
 
   const [theme, setTheme] = useState("system");
+  const [language, setLanguage] = useState("ar");
   const [aiModel, setAiModel] = useState("gpt-4o");
   const [responseStyle, setResponseStyle] = useState("balanced");
   const [fontSize, setFontSize] = useState("medium");
@@ -81,10 +82,14 @@ export default function Settings() {
   const [voiceAutoPlay, setVoiceAutoPlay] = useState(true);
   const [continuousVoice, setContinuousVoice] = useState(false);
 
-  // Sync from DB prefs
+  // Sync from DB prefs — only initialize once when prefs first arrives,
+  // so editing controls don't get overridden by background refetches.
+  const hydratedRef = React.useRef(false);
   useEffect(() => {
-    if (prefs) {
+    if (prefs && !hydratedRef.current) {
+      hydratedRef.current = true;
       setTheme(prefs.theme || "system");
+      setLanguage(prefs.language || "ar");
       setAiModel(prefs.aiModel || "gpt-4o");
       setResponseStyle(prefs.responseStyle || "balanced");
       setFontSize(prefs.fontSize || "medium");
@@ -130,6 +135,7 @@ export default function Settings() {
   const handleSave = () => {
     updatePrefs.mutate({
       theme,
+      language,
       aiModel,
       responseStyle,
       fontSize,
@@ -363,8 +369,8 @@ export default function Settings() {
                     <p className="text-xs text-muted-foreground">اختر اللغة المفضلة</p>
                   </div>
                 </div>
-                <Select defaultValue="ar">
-                  <SelectTrigger className="w-[140px]">
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger className="w-[140px]" data-testid="select-language">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -385,7 +391,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <Select value={theme} onValueChange={setTheme}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[140px]" data-testid="select-theme">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
